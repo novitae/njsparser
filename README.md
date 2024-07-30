@@ -7,11 +7,6 @@
 
 Use like:
 ```py
-Last login: Tue Jul 30 08:55:37 on ttys000
-n@ns-MacBook-Pro ~ % cd njsparser
-n@ns-MacBook-Pro njsparser % py
-Python 3.11.9 (main, Apr  2 2024, 08:25:04) [Clang 15.0.0 (clang-1500.3.9.4)] on darwin
-Type "help", "copyright", "credits" or "license" for more information.
 >>> # I import everything from njsparser.
 >>> from njsparser import *
 >>> import ujson
