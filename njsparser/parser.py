@@ -102,6 +102,7 @@ def parse_nextjs_from_elements(
         while (char := string[pos]).isalpha() and char.isupper():
             value_class += char
             pos += 1
+        value_class = value_class or None
         
         if value_class == "T":
             text_length_string_end = string.find(",", pos)
