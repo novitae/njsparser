@@ -24,7 +24,7 @@ def find_nextjs_elements(tree: etree._Element) -> list[str]:
         for item in tree.xpath(
             './/script[re:match(text(), $pattern)]',
             namespaces=_namespaces,
-            pattern='self\.__next_f\.push\(\[1, (".*"|null)\]\)'
+            pattern='self\.__next_f\.push\(\[1,?(".*"|null)\]\)'
         )
     ]
 
