@@ -12,14 +12,14 @@ Use like:
 >>> import ujson
 >>>
 >>> # Then i am opening a page that has not nextjs in it.
->>> with open("lego.html", "r") as read:
+>>> with open("not found.html", "r") as read:
 ...     has_nextjs(read.read())
 ...
 False
 >>> # And here a page that has some nextjs in it.
 >>> # I am adding `return_elements=True` so I can get the elements that were
 >>> # found during the search, and avoir doing it again.
->>> with open("mintstars_found.html", "r") as read:
+>>> with open("found.html", "r") as read:
 ...     has, elements = has_nextjs(read.read(), return_elements=True)
 ...
 >>> # We can then see that it contains some nextjs, and that it found 18 elements.
