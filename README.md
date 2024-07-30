@@ -3,7 +3,7 @@
 
 *Still in dev + I have never read any single docs about NextJS, just reversed based from some websites, so there might be stuff and cases missing, feel free to open issues.*
 
-**📥 Install with `git install git+https://github.com/novitae/njsparser`**.
+**📥 Install with `pip install git+https://github.com/novitae/njsparser`**.
 
 Use like:
 ```py
