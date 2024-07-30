@@ -20,7 +20,7 @@ def find_nextjs_elements(tree: etree._Element) -> list[str]:
         list[str]: The list of elements.
     """
     return [
-        ujson.loads(item.text.strip().removeprefix("self.__next_f.push([1, ").removesuffix("])"))
+        ujson.loads(item.text.strip().removeprefix("self.__next_f.push([1,").removeprefix(" ").removesuffix("])"))
         for item in tree.xpath(
             './/script[re:match(text(), $pattern)]',
             namespaces=_namespaces,
