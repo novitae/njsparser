@@ -55,6 +55,17 @@ class NextJsElement(typing.TypedDict):
             index=index,
         )
     
+def list_to_dict(l: list[NextJsElement]) -> dict[int, NextJsElement]:
+    """Turns a list of NextJsElement to a dict like `{NextJsElement.index: NextJsElement}`
+
+    Args:
+        l (list[NextJsElement]): The list of NextJsElement.
+
+    Returns:
+        dict[int, NextJsElement]: The dict with index values of the `NextJsElement` as keys.
+    """
+    return {item["index"]: item for item in l}
+    
 _split_points = re.compile(r"(?<!\\)\n[a-f0-9]+:")
 def parse_nextjs_from_elements(
     elements: list[str],
