@@ -3,8 +3,14 @@ import orjson
 import re
 import typing
 
-__all__ = ( "NEXTJS_CLASSES", "find_nextjs_elements", "NextJsElement", "parse_nextjs_from_elements", "has_nextjs",
-            "parse_nextjs_from_tree", "parse_nextjs_from_text", "list_to_dict", )
+__all__ = (
+    "NextJsElement",
+    "list_to_dict",
+    "parse_nextjs_from_elements",
+    "has_nextjs",
+    "parse_nextjs_from_tree",
+    "parse_nextjs_from_text",
+)
 
 NEXTJS_CLASSES = typing.Literal[None, "E", "HL", "I", "T"]
 """NextJS classes that I know of"""
