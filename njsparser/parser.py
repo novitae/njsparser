@@ -10,22 +10,21 @@ NEXTJS_CLASSES = typing.Literal[None, "E", "HL", "I", "T"]
 """NextJS classes that I know of"""
 
 _re_line = re.compile(r'^\s*self\.__next_f\.push\((\[\d+,\s*.+\])\)\s*$')
-def find_nextjs_elements(tree: etree._Element) -> list[str]:
+def find_nextjs_elements(tree: etree._Element):
     """Finds and strips the values of the nextjs elements found in the given tree.
 
     Args:
         tree (etree._Element): The page under an `lxml.etree.HTML(text=...)` obj.
 
-    Returns:
-        list[str]: The list of elements.
+    Yields:
+        str: Raw js data.
     """
-    result = []
     for item in tree.xpath('//script/text()'):
         if is_matching := _re_line.match(item):
             integer, content = orjson.loads(is_matching.groups()[0])
+            content = typing.cast(str, content)
             if integer == 1:
-                result.append(content)
-    return result
+                yield content
 
 class NextJsElement(typing.TypedDict):
     """The dict storing the nextjs elements."""
@@ -127,40 +126,28 @@ def parse_nextjs_from_elements(
 
     return result
 
-@typing.overload
-def has_nextjs(value: str | etree._Element, *, return_elements: typing.Literal[True] = None) -> tuple[bool, list[str] | None]:
-    ...
-
-@typing.overload
-def has_nextjs(value: str | etree._Element, *, return_elements: typing.Literal[False] = None) -> bool:
-    ...
-
-def has_nextjs(value: str | etree._Element, *, return_elements: bool = None):
+def has_nextjs(value: str | etree._Element):
     """Does the text/tree contains any nextjs data ?
 
     Args:
         value (str | etree._Element): The text/tree to check in for any nextjs data.
-        return_elements (bool, optional): Do we return the elements we might have found ? Might be\
-            useful to directly run `parse_nextjs_from_elements` from them. Defaults to None (False).
 
     Raises:
         TypeError: The value isn't a `str` neither an `etree._Element`.
 
     Returns:
-        - tuple[bool, list[str] | None]: If `return_elements` is `True`.
-        - bool: If `return_elements` is `False` / `None`.
+        bool: If `return_elements` is `False` / `None`.
     """
     if isinstance(value, str):
         tree = etree.HTML(text=value)
     elif isinstance(tree, etree._Element) is False:
         raise TypeError('waited a `str` or `etree._Element`, got `%s`' % type(tree).__name__)
-    elements = find_nextjs_elements(tree=tree)
-    has_elements = bool(elements)
-    if return_elements:
-        return has_elements, elements or None
-    else:
-        return has_elements
-            
+    try:
+        next(find_nextjs_elements(tree=tree))
+        return True
+    except StopIteration:
+        return False
+
 def parse_nextjs_from_tree(
     tree: etree._Element,
     *,
@@ -190,7 +177,7 @@ def parse_nextjs_from_text(
 
     Args:
         text (str): The raw html string to parse nextjs from.
-       classes_filter (list[NEXTJS_CLASSES], optional): A list of classes you only want to get returned.\
+        classes_filter (list[NEXTJS_CLASSES], optional): A list of classes you only want to get returned.\
             The rest gets filtered out. The classes are `E`, `HL`, `I`, ... .Defaults to None, won't\
             filter out anything.
 
