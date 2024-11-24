@@ -1,5 +1,5 @@
 from lxml import etree
-import ujson
+import orjson
 import re
 import typing
 
@@ -9,7 +9,7 @@ __all__ = ( "NEXTJS_CLASSES", "find_nextjs_elements", "NextJsElement", "parse_ne
 NEXTJS_CLASSES = typing.Literal[None, "E", "HL", "I", "T"]
 """NextJS classes that I know of"""
 
-_namespaces = {'re': 'http://exslt.org/regular-expressions'}
+_re_line = re.compile(r'^\s*self\.__next_f\.push\((\[\d+,\s*.+\])\)\s*$')
 def find_nextjs_elements(tree: etree._Element) -> list[str]:
     """Finds and strips the values of the nextjs elements found in the given tree.
 
@@ -19,14 +19,13 @@ def find_nextjs_elements(tree: etree._Element) -> list[str]:
     Returns:
         list[str]: The list of elements.
     """
-    return [
-        ujson.loads(item.text.strip().removeprefix("self.__next_f.push([1,").removeprefix(" ").removesuffix("])"))
-        for item in tree.xpath(
-            './/script[re:match(text(), $pattern)]',
-            namespaces=_namespaces,
-            pattern='self\.__next_f\.push\(\[1,?(".*"|null)\]\)'
-        )
-    ]
+    result = []
+    for item in tree.xpath('//script/text()'):
+        if is_matching := _re_line.match(item):
+            integer, content = orjson.loads(is_matching.groups()[0])
+            if integer == 1:
+                result.append(content)
+    return result
 
 class NextJsElement(typing.TypedDict):
     """The dict storing the nextjs elements."""
@@ -50,7 +49,7 @@ class NextJsElement(typing.TypedDict):
             NextJsElement: The obj.
         """
         return cls(
-            value=ujson.loads(value) if value_class != "T" else value,
+            value=orjson.loads(value) if value_class != "T" else value,
             value_class=value_class or None,
             index=index,
         )
@@ -66,7 +65,7 @@ def list_to_dict(l: list[NextJsElement]) -> dict[int, NextJsElement]:
     """
     return {item["index"]: item for item in l}
     
-_split_points = re.compile(r"(?<!\\)\n[a-f0-9]+:")
+_split_points = re.compile(rb"(?<!\\)\n[a-f0-9]+:")
 def parse_nextjs_from_elements(
     elements: list[str],
     *,
@@ -84,13 +83,16 @@ def parse_nextjs_from_elements(
     Returns:
         list[NextJsElement]: The list of results.
     """
+    if classes_filter is not None:
+        assert isinstance(classes_filter, list) and \
+            all([item is None or isinstance(item, str) for item in classes_filter])
     assert elements is not None, "`elements` argument is None"
-    string = "".join(elements)
+    string = "".join(elements).encode()
     result: list[NextJsElement] = []
 
     pos = 0
     while True:
-        index_string_end = string.find(":", pos)
+        index_string_end = string.find(b":", pos)
         index_string_raw = string[pos:index_string_end]
         if index_string_raw:
             index = int(index_string_raw, 16)
@@ -99,15 +101,16 @@ def parse_nextjs_from_elements(
             break
 
         value_class = ""
-        while (char := string[pos]).isalpha() and char.isupper():
+        while (char := chr(string[pos])).isalpha() and char.isupper():
             value_class += char
             pos += 1
         value_class = value_class or None
         
         if value_class == "T":
-            text_length_string_end = string.find(",", pos)
-            text_length = int(string[pos:text_length_string_end], 16)
-            text_start = text_length_string_end + 1
+            text_length_string_end = string.find(b",", pos)
+            text_length_hex = string[pos:text_length_string_end]
+            text_length = int(text_length_hex, 16)
+            text_start = text_length_string_end + 1 # (+1 for the comma)
             value = string[text_start:text_start+text_length]
             pos = text_start + text_length
         else:
@@ -120,7 +123,7 @@ def parse_nextjs_from_elements(
                 pos += len(value)
 
         if classes_filter is None or value_class in classes_filter:
-            result.append(NextJsElement.from_parsing(value=value, value_class=value_class, index=index))
+            result.append(NextJsElement.from_parsing(value=value.decode(), value_class=value_class, index=index))
 
     return result
 

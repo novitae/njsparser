@@ -9,7 +9,7 @@ Use like:
 ```py
 >>> # I import everything from njsparser.
 >>> from njsparser import *
->>> import ujson
+>>> import orjson
 >>>
 >>> # Then i am opening a page that has not nextjs in it.
 >>> with open("not found.html", "r") as read:
@@ -25,7 +25,7 @@ False
 >>> # We can then see that it contains some nextjs, and that it found 18 elements.
 >>> has, len(elements)
 (True, 18)
->>> print(ujson.dumps(elements, indent=2))
+>>> print(orjson.dumps(elements, option=orjson.OPT_INDENT_2))
 [
   "1:HL[\"\/_next\/static\/media\/2d141e1a38819612-s.p.woff2\",\"font\",{\"crossOrigin\":\"\",\"type\":\"font\/woff2\"}]\n2:HL[\"\/_next\/static\/css\/4d38074da0a0fb69.css\",\"style\"]\n3:HL[\"\/_next\/static\/css\/46d2f1b70d0e73f2.css\",\"style\"]\n4:HL[\"\/_next\/static\/css\/5ef1019dd2f2a6a4.css\",\"style\"]\n",
   ... # And 17 more
@@ -33,7 +33,7 @@ False
 >>> # And here I can parse all the elements
 >>> parsed = parse_nextjs_from_elements(elements)
 >>> # Here's a part of them:
->>> print(ujson.dumps(parsed[6:8], indent=2))
+>>> print(orjson.dumps(parsed[6:8], option=orjson.OPT_INDENT_2))
 [
   {
     "value": [
