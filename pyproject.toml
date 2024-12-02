@@ -11,6 +11,7 @@ license = "MIT"
 python = "^3.10"
 lxml = "^5.3.0"
 orjson = "^3.10.12"
+pytest = "^8.3.4"
 
 [tool.poetry.group.dev.dependencies]
 ipykernel = "^6.29.5"
