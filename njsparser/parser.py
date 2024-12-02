@@ -3,6 +3,8 @@ import orjson
 import re
 import typing
 
+from .utils import make_tree, _supported_tree
+
 __all__ = (
     "NextJsElement",
     "list_to_dict",
@@ -16,21 +18,24 @@ NEXTJS_CLASSES = typing.Literal[None, "E", "HL", "I", "T"]
 """NextJS classes that I know of"""
 
 _re_line = re.compile(r'^\s*self\.__next_f\.push\((\[\d+,\s*.+\])\)\s*$')
-def find_nextjs_elements(tree: etree._Element):
+def find_nextjs_elements(value: _supported_tree):
     """Finds and strips the values of the nextjs elements found in the given tree.
 
     Args:
-        tree (etree._Element): The page under an `lxml.etree.HTML(text=...)` obj.
+        value (_supported_tree): The tree.
 
-    Yields:
-        str: Raw js data.
+    Returns:
+        list[str]: Raw js data.
     """
+    tree = make_tree(value=value)
+    result: list[str] = []
     for item in tree.xpath('//script/text()'):
         if is_matching := _re_line.match(item):
             integer, content = orjson.loads(is_matching.groups()[0])
             content = typing.cast(str, content)
             if integer == 1:
-                yield content
+                result.append(content)
+    return result
 
 class NextJsElement(typing.TypedDict):
     """The dict storing the nextjs elements."""
@@ -132,24 +137,17 @@ def parse_nextjs_from_elements(
 
     return result
 
-def has_nextjs(value: str | etree._Element):
+def has_nextjs(value: _supported_tree):
     """Does the text/tree contains any nextjs data ?
 
     Args:
         value (str | etree._Element): The text/tree to check in for any nextjs data.
 
-    Raises:
-        TypeError: The value isn't a `str` neither an `etree._Element`.
-
     Returns:
         bool: If `return_elements` is `False` / `None`.
     """
-    if isinstance(value, str):
-        tree = etree.HTML(text=value)
-    elif isinstance(tree, etree._Element) is False:
-        raise TypeError('waited a `str` or `etree._Element`, got `%s`' % type(tree).__name__)
     try:
-        next(find_nextjs_elements(tree=tree))
+        next(find_nextjs_elements(value=value))
         return True
     except StopIteration:
         return False
@@ -171,7 +169,8 @@ def parse_nextjs_from_tree(
         - None: If the given tree doesn't contain any nextjs data.
         - list[NextJsElement]: The list of results.
     """
-    if elements := find_nextjs_elements(tree=tree):
+    assert isinstance(tree, etree._Element)
+    if elements := find_nextjs_elements(value=tree):
         return parse_nextjs_from_elements(elements=elements, classes_filter=classes_filter)
 
 def parse_nextjs_from_text(
@@ -190,4 +189,7 @@ def parse_nextjs_from_text(
     Returns:
         list[NextJsElement]: The list of results.
     """
+    assert isinstance(text, (str, bytes))
     return parse_nextjs_from_tree(tree=etree.HTML(text=text), classes_filter=classes_filter)
+
+parse_nextjs_from_bytes = parse_nextjs_from_text
