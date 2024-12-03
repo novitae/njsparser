@@ -50,7 +50,7 @@ def get_build_manifest_path(build_id: str, base_path: str = None):
 
     Args:
         build_id (str): The build id of the website.
-        prefix (str, optional): The base path (can be obtained with
+        base_path (str, optional): The base path (can be obtained with
             `njsparser.tools.get_base_path(...)`). Defaults to None.
 
     Returns:

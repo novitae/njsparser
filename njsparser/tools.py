@@ -4,6 +4,8 @@ from .parser.flight_data import has_flight_data, get_flight_data
 from .parser.urls import get_next_static_urls, get_base_path, _NS
 from .parser.manifests import parse_buildmanifest, _manifest_paths
 
+__all__ = ("has_nextjs", "find_build_id")
+
 def has_nextjs(value: _supported_tree):
     """Tells if the page has some nextjs data in it.
 

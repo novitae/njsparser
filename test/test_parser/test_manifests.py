@@ -1,4 +1,3 @@
-import pytest
 from njsparser.parser.manifests import parse_buildmanifest, get_build_manifest_path
 from njsparser.tools import find_build_id
 
