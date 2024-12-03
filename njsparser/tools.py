@@ -1,7 +1,10 @@
-import re
+from .utils import _supported_tree, make_tree, logger
+from .parser.next_data import has_next_data, get_next_data
+from .parser.flight_data import has_flight_data, get_flight_data
+from .parser.urls import get_next_static_urls, get_base_path, _NS
 
-from .utils import _supported_tree
-from .parser import has_next_data, has_flight_data
+_build_manifest, _ssg_manifest = "_buildManifest.js", "_ssgManifest.js"
+_manifest_paths = (f"/{_build_manifest}", f"/{_ssg_manifest}")
 
 def has_nextjs(value: _supported_tree):
     """Tells if the page has some nextjs data in it.
@@ -14,21 +17,52 @@ def has_nextjs(value: _supported_tree):
     """
     return any([has_next_data(value=value), has_flight_data(value=value)])
 
-_re_build_id = re.compile(r"^[A-Za-z\d\-_]{21}$")
+def find_build_id(value: _supported_tree):
+    """Searches and return (or not) the build id of the given page.
 
-# def find_build_id(value: _supported_tree):
-#     """Searches and return (or not) the build id of the given page.
+    Args:
+        value (_supported_tree): The page to find the build id from.
 
-#     Args:
-#         value (_supported_tree): The page to find the build id from.
-#     """
-#     tree = make_tree(value=value)
-#     if (next_data := get_next_data(value=tree)) is not None:
-#         try:
-#             return next_data["buildId"]
-#         except KeyError:
-#             logger.warning( "Found a next_data dict in the page, " \
-#                             "but did't contain any `buildId` key." )
-#     elif (found_next_elements := find_nextjs_elements(value=tree)):
-#         for parsed_nextjs_item in parse_nextjs_from_elements(elements=found_next_elements):
-#             ""
+    Returns:
+        str | None: Either the buildId if it was found, or None if it didn't.
+    """
+    tree = make_tree(value=value)
+
+    # Searches through the static next urls, and if we find anything that ends
+    # with `"/_buildManifest.js"` or `"/_ssgManifest.js"`, we can extract the
+    # build id from it.
+    if (next_static_urls := get_next_static_urls(value=tree)) is not None:
+        base_path = get_base_path(value=next_static_urls, remove_domain=False)
+        for next_static_url in next_static_urls:
+            sliced_su = next_static_url.removeprefix(base_path).removeprefix(_NS)
+            for manifest_path in _manifest_paths:
+                if sliced_su.endswith(manifest_path):
+                    return sliced_su.removesuffix(manifest_path)
+                
+    # We search for the buildId directly into the `__NEXT_DATA__` script.
+    if (next_data := get_next_data(value=tree)) is not None:
+        if "buildId" in next_data:
+            return next_data["buildId"]
+        else:
+            logger.warning( "Found a next_data dict in the page, " \
+                            "but did't contain any `buildId` key." )
+            
+    # We search for the builId in the flight data.
+    elif (flight_data := get_flight_data(value=tree)) is not None:
+        if isinstance(flight_data[0], dict) \
+            and (b := flight_data[0].get("b")) is not None \
+            and isinstance(b, str):
+            return b
+        elif isinstance(flight_data[0], list) \
+            and flight_data[0][0] == "$" \
+            and flight_data[0][1] == "$L1" \
+            and flight_data[0][2] is None \
+            and isinstance((d := flight_data[0][3]), dict) \
+            and "buildId" in d:
+            return d["buildId"]
+        else:
+            logger.warning( "Found flight data in the page, but " \
+                            "couldnt find the build id. If are certain" \
+                            " there is one, open an issue with your " \
+                            "html to investigate." )
+            

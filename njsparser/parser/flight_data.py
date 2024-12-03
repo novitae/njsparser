@@ -10,7 +10,7 @@ from ..utils import make_tree, _supported_tree
 # from .types import InitialRSCPayload
 
 _raw_f_data = List[Union[list[int], list[int, str]]]
-_re_f_init = re.compile(r'\(self\.__next_f\s?=\s?self\.__next_f\s?\|\|\s?\[\]\)\.push\((\[.+)\)')
+_re_f_init = re.compile(r'\(self\.__next_f\s?=\s?self\.__next_f\s?\|\|\s?\[\]\)\.push\((\[.+?\])\)')
 _re_f_payload = re.compile(r'self\.__next_f\.push\((\[.+)\)$')
 
 def has_flight_data(value: _supported_tree) -> bool:

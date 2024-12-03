@@ -12,8 +12,7 @@ def test_get_base_path():
     assert get_base_path(value=m_soundcloud_com_html) == "https://m.sndcdn.com"
     assert get_base_path(value=m_soundcloud_com_html, remove_domain=True) == ""
     assert get_base_path(value=x_com_html) is None
-    assert get_base_path( value=["https://test.com/hello/_next/static/"] * 5,
-                          remove_domain=True, ) == "/hello"
+    assert get_base_path(value=swag_live_html, remove_domain=True) == "/static"
     with pytest.raises(AssertionError):
         # Doesn't contain any `/_next/static/`.
         get_base_path(value=["https://test.com/hello"])
