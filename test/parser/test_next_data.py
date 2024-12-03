@@ -1,8 +1,8 @@
-from njsparser.parser.next_data import find_nextdata
+from njsparser.parser.next_data import get_next_data
 
 from .. import *
 
 def test_find_nextdata():
-    assert find_nextdata(value=m_soundcloud_com_html) is not None
-    assert find_nextdata(value=x_com_html) is None
-    assert find_nextdata(value=nextjs_org_html) is None
+    assert get_next_data(value=m_soundcloud_com_html) is not None
+    assert get_next_data(value=x_com_html) is None
+    assert get_next_data(value=nextjs_org_html) is None

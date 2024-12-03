@@ -1,9 +1,10 @@
-"""Part of the lib to interract with the data located looking like `self.__next_f.push(1, "...")`"""
+"""Part of the lib to interract with the nextjs data located looking like `self.__next_f.push(1, "...")`"""
 
 from typing import List, Union, Any
 import orjson
 import re
 import base64
+from enum import Enum
 
 from ..utils import make_tree, _supported_tree
 # from .types import InitialRSCPayload
@@ -11,6 +12,7 @@ from ..utils import make_tree, _supported_tree
 _raw_f_data = List[Union[list[int], list[int, str]]]
 _re_f_init = re.compile(r'\(self\.__next_f\s?=\s?self\.__next_f\s?\|\|\s?\[\]\)\.push\((\[.+)\)')
 _re_f_payload = re.compile(r'self\.__next_f\.push\((\[.+)\)$')
+
 def has_flight_data(value: _supported_tree) -> bool:
     """Tells if a given page contains any flight data.
 
@@ -21,13 +23,20 @@ def has_flight_data(value: _supported_tree) -> bool:
         bool: True if the page contains any flight data.
     """
     scripts = make_tree(value=value).xpath(f'.//script/text()')
-    return any([_re_f_init.match(script) for script in scripts])
+    return any([_re_f_init.search(script) for script in scripts])
 
 def get_raw_flight_data(value: _supported_tree) -> _raw_f_data | None:
-    result = []
-    # The var `result` would be the array shown when doing `self.__next_f`
-    # on a page that contains flight data.
-    found_init = False
+    """Will return the raw flight data, under the same format as the array shown when
+    doing `console.log(self.__next_f);` in the console of a website containing nextjs
+    flight data.
+
+    Args:
+        value (_supported_tree): The page to get the data from.
+
+    Returns:
+        _raw_f_data | None: The `self.__next_f` array, or None if nothing found.
+    """
+    result, found_init = [], False
     for script in make_tree(value=value).xpath('.//script/text()'):
         script: str = script.strip()
         if found_init is False and \
@@ -38,28 +47,48 @@ def get_raw_flight_data(value: _supported_tree) -> _raw_f_data | None:
             result.append(orjson.loads(is_matching.groups()[0]))
     return result or None
 
+class Segment(int, Enum):
+    is_bootstrap = 0
+    is_not_bootstrap = 1
+    is_form_state = 2
+    is_binary = 3
+
 # https://chatgpt.com/share/674e2a5c-6a34-8007-a1f7-510a74d89d26
 # https://github.com/vercel/next.js/blob/5405f66fc78d02cc30afd0284630d91f676c3f38/packages/next/src/client/app-index.tsx#L43-L80
 def decode_raw_flight_data(raw_flight_data: _raw_f_data) -> List[str]:
-    initial_server_data_buffer = None
-    initial_form_state_data = None # Idk what is this for.
-    for seg in raw_flight_data:
-        if seg[0] == 0:  # Bootstrap segment
-            initial_server_data_buffer = []
-        elif seg[0] == 1:  # Partial text response
-            if initial_server_data_buffer is None:
-                raise Exception("Var `initial_server_data_buffer` not yet a list.")
-            initial_server_data_buffer.append(seg[1])
-        elif seg[0] == 2:  # Form state
-            initial_form_state_data = seg[1]
-        elif seg[0] == 3:  # Binary data
-            raise NotImplementedError('Binary data segment still has to be tested !')
-            if initial_server_data_buffer is None:
-                raise Exception("Var `initial_server_data_buffer` not yet a list.")
-            decoded_chunk = base64.b64decode(seg[1].encode())
-            initial_server_data_buffer.append(decoded_chunk.decode())
-        else:
-            raise KeyError(f'Unknown segment type {seg[0]=}')
+    """Decodes the raw flight data the same way that the client would do it.
+
+    Args:
+        raw_flight_data (_raw_f_data): The raw flight data, coming from the
+            output of `get_raw_flight_data(...)`, representing the array
+            `self.__next_f` from a page that would contain flight data.
+
+    Raises:
+        KeyError: Unknown segment type.
+        RuntimeError: The 
+
+    Returns:
+        List[str]: _description_
+    """
+    try:
+        for seg in raw_flight_data:
+            if seg[0] == Segment.is_bootstrap:
+                initial_server_data_buffer = []
+            elif seg[0] == Segment.is_not_bootstrap:
+                initial_server_data_buffer.append(seg[1])
+            elif seg[0] == Segment.is_form_state:
+                initial_form_state_data = seg[1]
+            elif seg[0] == Segment.is_binary:
+                decoded_chunk = base64.b64decode(seg[1].encode())
+                initial_server_data_buffer.append(decoded_chunk.decode())
+            else:
+                raise KeyError(f'Unknown segment type {seg[0]=}')
+    except UnboundLocalError as error:
+        error.add_note( 'The `initial_server_data_buffer` was not yet initialized '
+                        'and a segment tried to append its data to it. This should '
+                        'not be happening if the flight data starts correctly with '
+                        'a the `is_bootstrap` segment.' )
+        raise error
     return initial_server_data_buffer
 
 _split_points = re.compile(rb"(?<!\\)\n[a-f0-9]+:")
@@ -129,6 +158,14 @@ def parse_decoded_raw_flight_data(decoded_raw_flight_data: List[str]) -> dict[in
     return indexed_result
 
 def get_flight_data(value: _supported_tree):
+    """Returns the flight data of the page (the data contained in `self.__next_f`).
+
+    Args:
+        value (_supported_tree): The page to get the data from.
+
+    Returns:
+        dict[int, Any] | None: The flight data, if it exists, otherwise, None.
+    """
     if (raw_flight_data := get_raw_flight_data(value=value)) is not None:
         decoded_raw_flight_data = decode_raw_flight_data(raw_flight_data=raw_flight_data)
         return parse_decoded_raw_flight_data(decoded_raw_flight_data=decoded_raw_flight_data)
