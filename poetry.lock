@@ -30,6 +30,24 @@ astroid = ["astroid (>=1,<2)", "astroid (>=2,<4)"]
 test = ["astroid (>=1,<2)", "astroid (>=2,<4)", "pytest"]
 
 [[package]]
+name = "barely_json"
+version = "1.0.0"
+description = "Parse invalid, malformed and barely JSON-esque data"
+optional = false
+python-versions = "*"
+files = []
+develop = false
+
+[package.dependencies]
+pyparsing = ">=3.1.0"
+
+[package.source]
+type = "git"
+url = "https://github.com/novitae/barely_json"
+reference = "HEAD"
+resolved_reference = "7c434b7ec52b10febf6a979cea489762ceef6bb8"
+
+[[package]]
 name = "cffi"
 version = "1.17.1"
 description = "Foreign Function Interface for Python calling C code."
@@ -782,6 +800,20 @@ files = [
 windows-terminal = ["colorama (>=0.4.6)"]
 
 [[package]]
+name = "pyparsing"
+version = "3.2.0"
+description = "pyparsing module - Classes and methods to define and execute parsing grammars"
+optional = false
+python-versions = ">=3.9"
+files = [
+    {file = "pyparsing-3.2.0-py3-none-any.whl", hash = "sha256:93d9577b88da0bbea8cc8334ee8b918ed014968fd2ec383e868fb8afb1ccef84"},
+    {file = "pyparsing-3.2.0.tar.gz", hash = "sha256:cbf74e27246d595d9a74b186b810f6fbb86726dbf3b9532efb343f6d7294fe9c"},
+]
+
+[package.extras]
+diagrams = ["jinja2", "railroad-diagrams"]
+
+[[package]]
 name = "pytest"
 version = "8.3.4"
 description = "pytest: simple powerful testing with Python"
@@ -1096,4 +1128,4 @@ files = [
 [metadata]
 lock-version = "2.0"
 python-versions = "^3.10"
-content-hash = "8cc18d37b3628bb82c5d087b1b11ad40bdec8b488f9804646fc53567a221cf1a"
+content-hash = "927f024bd4b8919eedeec636a38578eebe8c2771d22486cac090828ffb1b2523"

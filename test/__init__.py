@@ -7,6 +7,14 @@ with open("test/nextjs.org.html", "rb") as read:
 with open("test/swag.live.html", "rb") as read:
     swag_live_html = read.read()
 
+# Build manifest from nextjs
+with open("test/nextjs_org_4mSOwJptzzPemGzzI8AOo_buildManifest.js", "r") as read:
+    nextjs_org_4mSOwJptzzPemGzzI8AOo_buildManifest = read.read()
+
+# Build manifest from swag.live
+with open("test/swag_live_giz3a1H7OUzfxgxRHIdMx_buildManifest.js", "r") as read:
+    swag_live_giz3a1H7OUzfxgxRHIdMx_buildManifest = read.read()
+
 # Has NextJS (with __next_data__)
 with open("test/m.soundcloud.com.html", "rb") as read:
     m_soundcloud_com_html = read.read()

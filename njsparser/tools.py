@@ -2,9 +2,7 @@ from .utils import _supported_tree, make_tree, logger
 from .parser.next_data import has_next_data, get_next_data
 from .parser.flight_data import has_flight_data, get_flight_data
 from .parser.urls import get_next_static_urls, get_base_path, _NS
-
-_build_manifest, _ssg_manifest = "_buildManifest.js", "_ssgManifest.js"
-_manifest_paths = (f"/{_build_manifest}", f"/{_ssg_manifest}")
+from .parser.manifests import parse_buildmanifest, _manifest_paths
 
 def has_nextjs(value: _supported_tree):
     """Tells if the page has some nextjs data in it.
