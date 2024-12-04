@@ -17,7 +17,7 @@ def has_nextjs(value: _supported_tree):
     """
     return any([has_next_data(value=value), has_flight_data(value=value)])
 
-def find_build_id(value: _supported_tree):
+def find_build_id(value: _supported_tree) -> str | None:
     """Searches and return (or not) the build id of the given page.
 
     Args:

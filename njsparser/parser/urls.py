@@ -74,7 +74,6 @@ def get_base_path(value: _supported_tree | list[str], *, remove_domain: bool = N
             f"{index=} of '{_NS}' in {path=} is != {global_index=}"
     
     result = paths[0][:global_index]
-    if remove_domain is True:
-        host = urlparse(url=result).hostname
+    if remove_domain is True and (host := urlparse(url=result).hostname) is not None:
         result = result.split(host, 1).pop()
     return result

@@ -1,6 +1,6 @@
 [tool.poetry]
 name = "njsparser"
-version = "1.2"
+version = "2.0b1"
 description = "A Python NextJS data parser from HTML"
 authors = ["ae <85891169+novitae@users.noreply.github.com>"]
 readme = "README.md"
@@ -13,9 +13,17 @@ lxml = "^5.3.0"
 orjson = "^3.10.12"
 pytest = "^8.3.4"
 barely-json = {git = "https://github.com/novitae/barely_json"}
+rich = {version = "^13.9.4", optional = true}
+typer = {version = "^0.15.0", optional = true}
+requests = {version = "^2.32.3", extras = ["cli"]}
 
 [tool.poetry.group.dev.dependencies]
 ipykernel = "^6.29.5"
+rich = "^13.9.4"
+typer = "^0.15.0"
+
+[tool.poetry.extras]
+cli = ["rich", "aiohttp", "typer"]
 
 [build-system]
 requires = ["poetry-core"]
