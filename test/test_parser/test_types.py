@@ -1,6 +1,13 @@
 from njsparser.parser.types import *
 from dataclasses import FrozenInstanceError
+from pydantic import ValidationError
+import orjson
 import pytest
+
+def test_FlightElement():
+    with pytest.raises(ValueError):
+        FlightElement(value="")
+    FlightElement(value="", value_class="")
 
 def test_FlightElement():
     f = FlightElement(value="hi", value_class=None)
@@ -22,8 +29,8 @@ _flightHintPreloadPayload_2 = dict(
     ],
     value_class="HL",
 )
-def test_HeadLink():
-    with pytest.raises(TypeError):
+def test_FlightHintPreload():
+    with pytest.raises(ValidationError):
         FlightHintPreload(value=["hello"])
     hl1 = FlightHintPreload(**_flightHintPreloadPayload_1)
     assert hl1.href == href1
@@ -33,6 +40,13 @@ def test_HeadLink():
     assert hl2.href == href2
     assert hl2.type_name == type_name2
     assert hl2.attrs is None
+
+def test_serializer_default():
+    orjson.dumps(
+        FlightElement(value="", value_class=""),
+        default=serializer_default,
+        option=orjson.OPT_PASSTHROUGH_DATACLASS
+    )
 
 _flightModulePayload = dict(
     value=[
@@ -53,6 +67,19 @@ def test_FlightModule():
     assert i.module_scripts_raw() == {'71523': 'static/chunks/25c8a87d-0d1c991f726a4cc1.js', '10411': 'static/chunks/app/(webapp)/%5Blang%5D/(public)/user/layout-bd7c1d222b477529.js'}
     assert i.module_scripts == {'71523': '/_next/static/chunks/25c8a87d-0d1c991f726a4cc1.js', '10411': '/_next/static/chunks/app/(webapp)/%5Blang%5D/(public)/user/layout-bd7c1d222b477529.js'}
     assert i.module_name == "default"
+
+_flightTextPayload = dict(value=(hw := "hello world"), value_class="T")
+def test_FlightText():
+    t = FlightText(**_flightTextPayload)
+    assert t.value == t.text == hw
+
+_flightDataPayload = dict(value=None, value_class=None)
+def test_FlightData():
+    assert FlightData(**_flightDataPayload).value is None
+
+_flightSpecialDataPayload = dict(value="$Sreact.suspense", value_class=None)
+def test_FlightSpecialData():
+    assert FlightSpecialData(**_flightSpecialDataPayload).value == "$Sreact.suspense"
 
 _flightHTMLElementPayload_1 = dict(
     value=["$", "div", None, {}],
@@ -77,10 +104,23 @@ def test_FlightHTMLElement():
     assert h2.href == 'https://sentry.io'
     assert h2.attrs == {'rel': 'dns-prefetch', 'href': 'https://sentry.io'}
 
-_flightTextPayload = dict(value=(hw := "hello world"), value_class="T")
-def test_FlightText():
-    t = FlightText(**_flightTextPayload)
-    assert t.value == t.text == hw
+_flightDataContainerPayload = dict(
+    value=[ _flightHTMLElementPayload_1["value"],
+            _flightHTMLElementPayload_2["value"]],
+    value_class=None,
+)
+def test_FlightDataContainer():
+    dcp = FlightDataContainer(**_flightDataContainerPayload)
+    assert dcp.value == _flightDataContainerPayload["value"]
+
+_flightURLPlaceholderValuePayload = dict(
+    value=(phv := ["key", "val", "d"]),
+    value_class=None,
+)
+def test_FlightURLPlaceholderValue():
+    urlp = FlightURLPlaceholderValue(**_flightURLPlaceholderValuePayload)
+    assert urlp.key == phv[0]
+    assert urlp.val == phv[1]
 
 _flightRSCPayload_old = dict(
     value=["$", "$L1", None, {"buildId": (iam := "i am a build id")}],
@@ -110,9 +150,13 @@ def test_resolve_type():
     assert isinstance(resolve_type(**_flightHintPreloadPayload_1, index=1), FlightHintPreload)
     assert isinstance(resolve_type(**_flightHintPreloadPayload_2, index=1), FlightHintPreload)
     assert isinstance(resolve_type(**_flightModulePayload, index=1), FlightModule)
+    assert isinstance(resolve_type(**_flightTextPayload, index=1), FlightText)
+    assert isinstance(resolve_type(**_flightDataPayload, index=1), FlightData)
+    assert isinstance(resolve_type(**_flightSpecialDataPayload, index=4), FlightSpecialData)
+    assert isinstance(resolve_type(**_flightURLPlaceholderValuePayload, index=1), FlightURLPlaceholderValue)
+    assert isinstance(resolve_type(**_flightDataContainerPayload, index=1), FlightDataContainer)
     assert isinstance(resolve_type(**_flightHTMLElementPayload_1, index=1), FlightHTMLElement)
     assert isinstance(resolve_type(**_flightHTMLElementPayload_2, index=1), FlightHTMLElement)
-    assert isinstance(resolve_type(**_flightTextPayload, index=1), FlightText)
     assert isinstance(resolve_type(**_flightRSCPayload_old, index=0), FlightRSCPayload)
     assert isinstance(resolve_type(**_flightRSCPayload_new, index=0), FlightRSCPayload)
     assert isinstance(resolve_type(**_flightErrorPayload, index=1), FlightError)
