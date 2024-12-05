@@ -7,6 +7,8 @@ from enum import Enum
 from ..utils import logger, join
 from .urls import _N
 
+# TODO: Asserts in the __post_init__ to make sure the data fed isn't bullshit
+
 __all__ = (
     "FlightElement",
     "serializer_default",
@@ -32,6 +34,8 @@ class FlightElement:
     "The value of the element."
     value_class: str | None
     "The class of the value."
+    index: int
+    "The index of the item in the flight data."
 
 def serializer_default(obj: Any):
     if isinstance(obj, FlightElement):
@@ -475,4 +479,4 @@ def resolve_type(
         logger.warning( "Couldn't find an appropriate type for given "
                        f"class `{value_class}`. Giving `FlightElement`." )
         cls = FlightElement
-    return cls(value=value, value_class=value_class)
+    return cls(value=value, value_class=value_class, index=index)

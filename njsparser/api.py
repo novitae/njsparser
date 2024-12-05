@@ -39,6 +39,12 @@ def get_index_api_path(build_id: str, base_path: str = None):
     """
     return get_api_path(build_id=build_id, base_path=base_path, path=_index_json)
 
+# Works:
+# - https://coindrop.to/[piggybankName]
+#   https://coindrop.to/_next/data/cSqeZiCyPxe_rbiYdsZdp/[piggybankName].json
+# Doesn't:
+# - https://www.bible.com/users/[username]
+#   https://www.bible.com/_next/data/EhmmkHrUA0ygbv7dJJTtH/users/[username].json
 def is_api_exposed_from_response(status_code: int, content_type: str, text: str):
     """Tells if the api is exposed from the response of the request to
     `f"https://{domain}{njsparser.utils.get_index_api_path(...)}"`.
@@ -81,42 +87,3 @@ def list_api_paths(sorted_pages: list[str], build_id: str, base_path: str, is_ap
             if (api_path := get_api_path(build_id=build_id, base_path=base_path, path=path)) is not None:
                 result.append(api_path)
     return result
-    
-# async def is_api_exposed(
-#     host: str,
-#     build_id: str,
-#     base_path: str = None,
-#     client: ClientSession | None = None,
-# ):
-#     """Tells if the API is exposed.
-
-#     Args:
-#         host (str): _description_
-#         build_id (str): _description_
-#         base_path (str, optional): _description_. Defaults to None.
-#         client (ClientSession | None, optional): _description_. Defaults to None.
-
-#     Returns:
-#         _type_: _description_
-#     """
-#     response = await client.get(
-#         "https://{}{}".format(
-#             host,
-#             get_index_api_url(build_id=build_id, base_path=base_path)
-#         ),
-#         allow_redirects=False,
-#     )
-#     return is_api_exposed_from_response(
-#         status_code=response.status,
-#         content_type=response.headers["Content-Type"],
-#         text=await response.text(),
-#     )
-
-# TODO: Find a way to see if the api is exposed or not
-# Works:
-# - https://coindrop.to/[piggybankName]
-#   https://coindrop.to/_next/data/cSqeZiCyPxe_rbiYdsZdp/[piggybankName].json
-#   
-# Doesn't:
-# - https://www.bible.com/users/[username]
-#   https://www.bible.com/_next/data/EhmmkHrUA0ygbv7dJJTtH/users/[username].json

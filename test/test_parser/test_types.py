@@ -7,10 +7,10 @@ import pytest
 def test_FlightElement():
     with pytest.raises(ValueError):
         FlightElement(value="")
-    FlightElement(value="", value_class="")
+    FlightElement(value="", value_class="", index=1)
 
 def test_FlightElement():
-    f = FlightElement(value="hi", value_class=None)
+    f = FlightElement(value="hi", value_class=None, index=1)
     with pytest.raises(FrozenInstanceError):
         f.value = "hello"
 
@@ -21,6 +21,7 @@ _flightHintPreloadPayload_1 = dict(
         (attrs1 := {"crossOrigin": "", "type": "font/woff2"})
     ],
     value_class="HL",
+    index=1,
 )
 _flightHintPreloadPayload_2 = dict(
     value=[
@@ -28,6 +29,7 @@ _flightHintPreloadPayload_2 = dict(
         (type_name2 := "style")
     ],
     value_class="HL",
+    index=1,
 )
 def test_FlightHintPreload():
     with pytest.raises(ValidationError):
@@ -43,7 +45,7 @@ def test_FlightHintPreload():
 
 def test_serializer_default():
     orjson.dumps(
-        FlightElement(value="", value_class=""),
+        FlightElement(value="", value_class="", index=1),
         default=serializer_default,
         option=orjson.OPT_PASSTHROUGH_DATACLASS
     )
@@ -60,6 +62,7 @@ _flightModulePayload = dict(
         "default"
     ],
     value_class="I",
+    index=1,
 )
 def test_FlightModule():
     i = FlightModule(**_flightModulePayload)
@@ -68,22 +71,23 @@ def test_FlightModule():
     assert i.module_scripts == {'71523': '/_next/static/chunks/25c8a87d-0d1c991f726a4cc1.js', '10411': '/_next/static/chunks/app/(webapp)/%5Blang%5D/(public)/user/layout-bd7c1d222b477529.js'}
     assert i.module_name == "default"
 
-_flightTextPayload = dict(value=(hw := "hello world"), value_class="T")
+_flightTextPayload = dict(value=(hw := "hello world"), value_class="T", index=1)
 def test_FlightText():
     t = FlightText(**_flightTextPayload)
     assert t.value == t.text == hw
 
-_flightDataPayload = dict(value=None, value_class=None)
+_flightDataPayload = dict(value=None, value_class=None, index=1)
 def test_FlightData():
     assert FlightData(**_flightDataPayload).value is None
 
-_flightSpecialDataPayload = dict(value="$Sreact.suspense", value_class=None)
+_flightSpecialDataPayload = dict(value="$Sreact.suspense", value_class=None, index=1)
 def test_FlightSpecialData():
     assert FlightSpecialData(**_flightSpecialDataPayload).value == "$Sreact.suspense"
 
 _flightHTMLElementPayload_1 = dict(
     value=["$", "div", None, {}],
     value_class=None,
+    index=1,
 )
 _flightHTMLElementPayload_2 = dict(
     value=[
@@ -93,6 +97,7 @@ _flightHTMLElementPayload_2 = dict(
         {"rel": "dns-prefetch", "href": "https://sentry.io"}
     ],
     value_class=None,
+    index=1,
 )
 def test_FlightHTMLElement():
     h1 = FlightHTMLElement(**_flightHTMLElementPayload_1)
@@ -108,6 +113,7 @@ _flightDataContainerPayload = dict(
     value=[ _flightHTMLElementPayload_1["value"],
             _flightHTMLElementPayload_2["value"]],
     value_class=None,
+    index=1,
 )
 def test_FlightDataContainer():
     dcp = FlightDataContainer(**_flightDataContainerPayload)
@@ -116,6 +122,7 @@ def test_FlightDataContainer():
 _flightURLPlaceholderValuePayload = dict(
     value=(phv := ["key", "val", "d"]),
     value_class=None,
+    index=1,
 )
 def test_FlightURLPlaceholderValue():
     urlp = FlightURLPlaceholderValue(**_flightURLPlaceholderValuePayload)
@@ -125,10 +132,12 @@ def test_FlightURLPlaceholderValue():
 _flightRSCPayload_old = dict(
     value=["$", "$L1", None, {"buildId": (iam := "i am a build id")}],
     value_class=None,
+    index=0,
 )
 _flightRSCPayload_new = dict(
     value={"b": (iamn := "i am a new build id")},
     value_class=None,
+    index=0,
 )
 def test_FlightRSCPayload():
     rscp1 = FlightRSCPayload(**_flightRSCPayload_old)
@@ -141,22 +150,23 @@ def test_FlightRSCPayload():
 _flightErrorPayload = dict(
     value={"digest": (err := "NEXT_NOT_FOUND")},
     value_class="E",
+    index=1,
 )
 def test_FlightError():
     fe = FlightError(**_flightErrorPayload)
     assert fe.digest == err
 
 def test_resolve_type():
-    assert isinstance(resolve_type(**_flightHintPreloadPayload_1, index=1), FlightHintPreload)
-    assert isinstance(resolve_type(**_flightHintPreloadPayload_2, index=1), FlightHintPreload)
-    assert isinstance(resolve_type(**_flightModulePayload, index=1), FlightModule)
-    assert isinstance(resolve_type(**_flightTextPayload, index=1), FlightText)
-    assert isinstance(resolve_type(**_flightDataPayload, index=1), FlightData)
-    assert isinstance(resolve_type(**_flightSpecialDataPayload, index=4), FlightSpecialData)
-    assert isinstance(resolve_type(**_flightURLPlaceholderValuePayload, index=1), FlightURLPlaceholderValue)
-    assert isinstance(resolve_type(**_flightDataContainerPayload, index=1), FlightDataContainer)
-    assert isinstance(resolve_type(**_flightHTMLElementPayload_1, index=1), FlightHTMLElement)
-    assert isinstance(resolve_type(**_flightHTMLElementPayload_2, index=1), FlightHTMLElement)
-    assert isinstance(resolve_type(**_flightRSCPayload_old, index=0), FlightRSCPayload)
-    assert isinstance(resolve_type(**_flightRSCPayload_new, index=0), FlightRSCPayload)
-    assert isinstance(resolve_type(**_flightErrorPayload, index=1), FlightError)
+    assert isinstance(resolve_type(**_flightHintPreloadPayload_1), FlightHintPreload)
+    assert isinstance(resolve_type(**_flightHintPreloadPayload_2), FlightHintPreload)
+    assert isinstance(resolve_type(**_flightModulePayload), FlightModule)
+    assert isinstance(resolve_type(**_flightTextPayload), FlightText)
+    assert isinstance(resolve_type(**_flightDataPayload), FlightData)
+    assert isinstance(resolve_type(**_flightSpecialDataPayload), FlightSpecialData)
+    assert isinstance(resolve_type(**_flightURLPlaceholderValuePayload), FlightURLPlaceholderValue)
+    assert isinstance(resolve_type(**_flightDataContainerPayload), FlightDataContainer)
+    assert isinstance(resolve_type(**_flightHTMLElementPayload_1), FlightHTMLElement)
+    assert isinstance(resolve_type(**_flightHTMLElementPayload_2), FlightHTMLElement)
+    assert isinstance(resolve_type(**_flightRSCPayload_old), FlightRSCPayload)
+    assert isinstance(resolve_type(**_flightRSCPayload_new), FlightRSCPayload)
+    assert isinstance(resolve_type(**_flightErrorPayload), FlightError)

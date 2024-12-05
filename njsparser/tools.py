@@ -1,11 +1,13 @@
+from typing import Type
+
 from .utils import _supported_tree, make_tree, logger
 from .parser.next_data import has_next_data, get_next_data
 from .parser.flight_data import has_flight_data, get_flight_data
-from .parser.types import FlightRSCPayload
+from .parser.types import FlightRSCPayload, FlightElement
 from .parser.urls import get_next_static_urls, get_base_path, _NS
-from .parser.manifests import parse_buildmanifest, _manifest_paths
+from .parser.manifests import _manifest_paths
 
-__all__ = ("has_nextjs", "find_build_id")
+__all__ = ("has_nextjs", "find_build_id", "filter_flight_data")
 
 def has_nextjs(value: _supported_tree):
     """Tells if the page has some nextjs data in it.
@@ -57,4 +59,25 @@ def find_build_id(value: _supported_tree) -> str | None:
                             "couldnt find the build id. If are certain" \
                             " there is one, open an issue with your " \
                             "html to investigate :)" )
-            
+
+def filter_flight_data(
+    flight_data: dict[int, FlightElement],
+    class_filters: list[Type[FlightElement]],
+):
+    """Filters the flight data by returning only the items of the same
+    type as the ones in `class_filters`.
+
+    Args:
+        flight_data (dict[int, FlightElement]): The flight data, found
+            with `njsparser.parser.flight_data.get_flight_data(...)`.
+        class_filters (list[Type[FlightElement]]): The list of classes
+            the items of flight data should be in order to get returned.
+
+    Returns:
+        list[FlightElement]: The list of flight elements matching.
+    """
+    if class_filters:
+        return [ item for item in flight_data.values()
+                 if type(item) in class_filters ]
+    else:
+        return list(flight_data.values())
