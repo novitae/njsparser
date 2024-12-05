@@ -55,7 +55,7 @@ def find_build_id(value: _supported_tree) -> str | None:
             return b
         elif isinstance(flight_data[0], list) \
             and flight_data[0][0] == "$" \
-            and flight_data[0][1] == "$L1" \
+            and flight_data[0][1].startswith("$L") \
             and flight_data[0][2] is None \
             and isinstance((d := flight_data[0][3]), dict) \
             and "buildId" in d:

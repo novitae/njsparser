@@ -58,3 +58,6 @@ def get_build_manifest_path(build_id: str, base_path: str = None):
     """
     base_path = base_path or ""
     return join(base_path, _NS, build_id, _build_manifest_name)
+
+# TODO: support non function manifests:
+# self.__BUILD_MANIFEST={__rewrites:{afterFiles:[],beforeFiles:[],fallback:[]},"/_error":["static/chunks/pages/_error-dd86bf254bdae9ab.js"],sortedPages:["/_app","/_error"]},self.__BUILD_MANIFEST_CB&&self.__BUILD_MANIFEST_CB();
