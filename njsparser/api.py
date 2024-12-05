@@ -14,7 +14,7 @@ def join(*args: str):
            for arg in args if arg ]
     return "/".join(l)
 
-_excluded_paths = ("/404", "/_app", "/_error", "/sitemap.xml")
+_excluded_paths = ("/404", "/_app", "/_error", "/sitemap.xml", "/_middleware")
 def get_api_path(build_id: str, base_path: str = None, path: str = None):
     """Returns the path to the `index.json` file.
 
@@ -64,10 +64,10 @@ def is_api_exposed_from_response(status_code: int, content_type: str, text: str)
     Returns:
         bool: Is the api exposed ?
     """
-    if content_type.startswith("application/json") or status_code == 200:
+    if status_code == 200:
         return True
-    elif content_type.startswith("text/html"):
-        return False
+    elif content_type.startswith("application/json"):
+        return True
     else:
         return text == '{"notFound":true}'
     

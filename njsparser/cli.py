@@ -24,6 +24,7 @@ def analyze(url: str):
     value = utils.make_tree(value=main_response.text)
     assert tools.has_nextjs(value=value) is True, "page doesn't have nextjs"
     assert (build_id := tools.find_build_id(value=value)) is not None, "can't find any build id"
+    print("Build Id:", build_id)
     assert (base_path := parser.get_base_path(value=value, remove_domain=True)) is not None, "no next static url found"
     if parser.has_flight_data(value=value):
         print("The site contains flight data.")
