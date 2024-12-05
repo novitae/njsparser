@@ -24,3 +24,14 @@ def make_tree(value: _supported_tree):
     else:
         raise TypeError( 'waited a `str`, `bytes` or `etree._Element`, '
                          'got `%s`' % type(value).__name__ )
+
+def join(*args: str):
+    """Joins the args to make an url path (for some reasons os.path.join
+    is shit for this and excludes some parts).
+
+    Returns:
+        str: The url path.
+    """
+    l = [""]
+    l += [arg.strip("/") for arg in args if arg]
+    return "/".join(l)

@@ -7,7 +7,7 @@ import base64
 from enum import Enum
 
 from ..utils import make_tree, _supported_tree
-# from .types import InitialRSCPayload
+from .types import resolve_type, FlightElement
 
 _raw_f_data = List[Union[list[int], list[int, str]]]
 _re_f_init = re.compile(r'\(self\.__next_f\s?=\s?self\.__next_f\s?\|\|\s?\[\]\)\.push\((\[.+?\])\)')
@@ -110,7 +110,7 @@ def decode_raw_flight_data(raw_flight_data: _raw_f_data) -> List[str]:
 #                            -> else          -> resolveModel
 
 _split_points = re.compile(rb"(?<!\\)\n[a-f0-9]+:")
-def parse_decoded_raw_flight_data(decoded_raw_flight_data: List[str]) -> dict[int, Any]:
+def parse_decoded_raw_flight_data(decoded_raw_flight_data: List[str]) -> dict[int, FlightElement]:
     # Here we join, then encode the decoded raw flight data. It is important to encode
     # it, otherwise some values in string will take way more characters, and the text
     # size announced in `"T"` will not be pointing to the correct text end.
@@ -146,7 +146,7 @@ def parse_decoded_raw_flight_data(decoded_raw_flight_data: List[str]) -> dict[in
             text_length_hex = compiled_raw_flight_data[pos:text_length_string_end]
             text_length = int(text_length_hex, 16)
             text_start = text_length_string_end + 1 # (+1 for the comma)
-            raw_value = compiled_raw_flight_data[text_start:text_start+text_length]
+            raw_value = compiled_raw_flight_data[text_start:text_start+text_length].decode()
             pos = text_start + text_length
         
         # Otherwise, we will search for the next time we have a non escaped `"\n"`,
@@ -166,12 +166,17 @@ def parse_decoded_raw_flight_data(decoded_raw_flight_data: List[str]) -> dict[in
                 pos += len(raw_value)
 
         if value_class != "T":
-            raw_value = orjson.loads(raw_value)
+            value = orjson.loads(raw_value)
+        else:
+            value = raw_value
         # if index == 0:
         #     value = InitialRSCPayload(**raw_value)
         # else:
-        value = raw_value
-        indexed_result[index] = value
+        indexed_result[index] = resolve_type(
+            value=value,
+            value_class=value_class,
+            index=index,
+        )
 
     return indexed_result
 

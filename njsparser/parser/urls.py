@@ -2,7 +2,8 @@ from urllib.parse import urlparse
 
 from ..utils import make_tree, _supported_tree
 
-_NS = "/_next/static/"
+_N = "/_next"
+_NS = f"{_N}/static/"
 
 def get_next_static_urls(value: _supported_tree):
     """Lists all the paths found on the page that contains a `/_next/static/`

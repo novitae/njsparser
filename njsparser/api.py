@@ -1,18 +1,6 @@
-# from aiohttp import ClientSession
+from .utils import join
 
 _index_json = "index.json"
-
-def join(*args: str):
-    """Joins the args to make an url path (for some reasons os.path.join
-    is shit for this and excludes some parts).
-
-    Returns:
-        str: The url path.
-    """
-    l = [""]
-    l += [ arg.removeprefix("/").removesuffix("/")
-           for arg in args if arg ]
-    return "/".join(l)
 
 _excluded_paths = ("/404", "/_app", "/_error", "/sitemap.xml", "/_middleware")
 def get_api_path(build_id: str, base_path: str = None, path: str = None):

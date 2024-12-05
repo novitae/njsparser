@@ -1,63 +1,44 @@
-from typing import Any, Literal, TypedDict
+from typing import Any, Literal, Type
 from lxml import etree
+from dataclasses import dataclass
+from enum import Enum
 
-# https://github.com/vercel/next.js/blob/965fe24d91d08567751339756e51f2cf9d0e3188/packages/next/src/server/app-render/types.ts#L224-L243
-class InitialRSCPayload:
-    def __init__(
-        self,
-        b: str,
-        # p: str,
-        # c: list[str],
-        # i: bool,
-        # f: Any, # list[FlightDataPath],
-        # m: set[str] | None,
-        # G: None, # [React.ComponentType<any>, React.ReactNode | undefined]
-        # s: bool,
-        # S: bool,
-        **kwargs,
-    ) -> None:
-        self._b = b
+from ..utils import logger, join
+from .urls import _N
 
-    @property
-    def build_id(self):
-        """The Build ID.
+__all__ = (
+    "FlightElement",
+    "FlightHintPreload",
+    "FlightModule",
+    "FlightHTMLElement",
+    "FlightText",
+    "resolve_type",
+    "FlightRSCPayload",
+    "FlightRSCPayloadVersion",
+    "FlightError",
+)
 
-        Returns:
-            str: The build id.
-        """
-        return self._b
-    
-class FlightObject:
-    flight_class_name: Any
+@dataclass(frozen=True)
+class FlightElement:
+    "An element contained in flight data"
+    value: Any
+    "The value of the element."
+    value_class: str | None
+    "The class of the value."
 
-    def __init__(self, raw: Any) -> None:
-        pass
-
-# class Tag(FlightObject):
-#     flight_class_name = None
-
-#     def __init__(self, raw: list[Any]) -> None:
-#         assert isinstance(raw, list) and raw[0] == "$"
-#         self._raw = raw
-
-#     @property
-#     def tag_name(self):
-#         return self._raw[1]
-    
-#     @property
-#     def attrs(self) -> dict[str, Any]:
-#         return {key: value for key, value in self._raw[3].items() if value != "$undefined"}
-
-class HeadLink(FlightObject):
+class FlightHintPreload(FlightElement):
     """Represents a `"HL"` object. It is used to place some `<link>` tags into
     the head of the document. Here are some examples of values:
 
     ```python
-    >>> hl1 = HeadLink([
-    ...     "/_next/static/media/93f479601ee12b01-s.p.woff2",
-    ...     "font",
-    ...     {"crossOrigin": "", "type": "font/woff2"}
-    ... ])
+    >>> hl1 = FlightHintPreload(
+    ...     value=[
+    ...         "/_next/static/media/93f479601ee12b01-s.p.woff2",
+    ...         "font",
+    ...         {"crossOrigin": "", "type": "font/woff2"}
+    ...     ],
+    ...     value_class="HL",
+    ... )
     >>> hl1.href
     '/_next/static/media/93f479601ee12b01-s.p.woff2'
     >>> hl1.type_name
@@ -65,10 +46,13 @@ class HeadLink(FlightObject):
     >>> hl1.attrs
     {"crossOrigin": "", "type": "font/woff2"}
     >>> 
-    >>> hl2 = HeadLink([
-    ...     "/_next/static/css/baf446a5c20b5fd4.css?dpl=dpl_F2qLi1zuzNsnuiFMqRXyYU9dbJYw",
-    ...     "style"
-    ... ])
+    >>> hl2 = FlightHintPreload(
+    ...     value=[
+    ...         "/_next/static/css/baf446a5c20b5fd4.css?dpl=dpl_F2qLi1zuzNsnuiFMqRXyYU9dbJYw",
+    ...         "style"
+    ...     ],
+    ...     value_class="HL",
+    ... )
     >>> hl2.href
     '/_next/static/css/baf446a5c20b5fd4.css?dpl=dpl_F2qLi1zuzNsnuiFMqRXyYU9dbJYw'
     >>> hl2.type_name
@@ -77,35 +61,36 @@ class HeadLink(FlightObject):
     >>> 
     ```
     """
-    flight_class_name = "HL"
-
-    def __init__(self, raw: list[Any]) -> None:
-        """Init the head link obj.
-
-        Args:
-            raw (list[Any]): The raw value of the HL object.
-        """
-        assert isinstance(raw, list) and len(raw) >= 2
-        self._raw = raw
+    value_class = "HL"
 
     @property
     def href(self) -> str:
         """The href of the object.
 
         Returns:
-            str: _description_
+            str: The href the link points to.
         """
-        return self._raw[0]
+        return self.value[0]
     
     @property
     def type_name(self) -> Literal["font", "style"] | str:
-        return self._raw[1]
+        """The type name of the object.
+
+        Returns:
+            str: The type name (font, style, ...)
+        """
+        return self.value[1]
     
     @property
     def attrs(self) -> None | dict[str, str]:
-        if len(self._raw) >= 3:
-            return self._raw[2]
-    
+        """The additional attributes of the object.
+
+        Returns:
+            None | dict[str, str]: The dict of it, or None if not attrs.
+        """
+        if len(self.value) >= 3:
+            return self.value[2]
+
     # # TODO
     # def html(self):
     #     element = etree.Element("link", href=self.href)
@@ -122,3 +107,256 @@ class HeadLink(FlightObject):
     #             raise NotImplementedError( f'type name {self.type_name} is not yet '
     #                                         'supported, please open an issue about it.' )
     #     return etree.tostring(element, method="html").decode("utf-8")
+
+class FlightModule(FlightElement):
+    """Represents a `"I"` object. It is used to import some modules (list of
+    scripts). Here is an usage example:
+
+    ```python
+    >>> i = FlightModule(
+    ...     value=[
+    ...         30777,
+    ...         [
+    ...             "71523",
+    ...             "static/chunks/25c8a87d-0d1c991f726a4cc1.js",
+    ...             "10411",
+    ...             "static/chunks/app/(webapp)/%5Blang%5D/(public)/user/layout-bd7c1d222b477529.js"
+    ...         ],
+    ...         "default"
+    ...     ],
+    ...     value_class="I",
+    ... )
+    >>> i.module_id
+    30777
+    >>> i.module_scripts_raw()
+    {'71523': 'static/chunks/25c8a87d-0d1c991f726a4cc1.js', '10411': 'static/chunks/app/(webapp)/%5Blang%5D/(public)/user/layout-bd7c1d222b477529.js'}
+    >>> i.module_scripts
+    {'71523': '/_next/static/chunks/25c8a87d-0d1c991f726a4cc1.js', '10411': '/_next/static/chunks/app/(webapp)/%5Blang%5D/(public)/user/layout-bd7c1d222b477529.js'}
+    >>> i.module_name
+    'default'
+    ```
+    """
+    value_class = "I"
+
+    @property
+    def module_id(self) -> int:
+        """Returns the module id.
+
+        Returns:
+            int: The module id.
+        """
+        return self.value[0]
+    
+    def module_scripts_raw(self) -> dict[str, str]:
+        """Returns the raw script[script id: script relative path].
+
+        Returns:
+            dict[str, str]: The script map.
+        """
+        return dict({
+            self.value[1][x]: self.value[1][x+1]
+            for x in range(0, len(self.value), 2)
+        })
+    
+    @property
+    def module_scripts(self):
+        """The modules scripts id to their absolute path.
+
+        Returns:
+            dict[str, str]: The script map with absolute paths.
+        """
+        return {key: join(_N, value) for key, value in self.module_scripts_raw().items()}
+    
+    @property
+    def module_name(self) -> str:
+        """The name of the module.
+
+        Returns:
+            str: The name of the module.
+        """
+        return self.value[2]
+    
+class FlightHTMLElement(FlightElement):
+    # https://github.com/facebook/react/blob/1c9b138714a69cd136a3d82769b1fd9a4b318953/packages/react-client/src/ReactFlightClient.js#L1324-L1526
+    """Represents a `None` object containing HTML. It is used to store HTML. Here
+    is an example:
+
+    ```python
+    >>> h = FlightHTMLElement(
+    ...     value=[
+    ...         "$",
+    ...         "link",
+    ...         "https://sentry.io",
+    ...         {
+    ...             "rel": "dns-prefetch",
+    ...             "href": "https://sentry.io"
+    ...         }
+    ...     ],
+    ...     value_class=None,
+    ... )
+    >>> h.tag
+    'link'
+    >>> h.href
+    'https://sentry.io'
+    >>> h.attrs
+    {'rel': 'dns-prefetch', 'href': 'https://sentry.io'}
+    ```
+    """
+    value_class = None
+
+    @property
+    def tag(self) -> str:
+        """Returns the tag of the html element, like "div", "link", ...
+
+        Returns:
+            str: The tag.
+        """
+        return self.value[1]
+    
+    @property
+    def href(self) -> str | None:
+        """The href, if there is one.
+
+        Returns:
+            str | None: The str href or None.
+        """
+        return self.value[2]
+    
+    @property
+    def attrs(self) -> dict[str, str]:
+        """The attributes.
+
+        Returns:
+            dict[str, str]: The attributes.
+        """
+        return self.value[3]
+    
+class FlightText(FlightElement):
+    """Represents a `"T"` flight element. It simply contains text.
+    
+    ```python
+    >>> t = FlightText(
+    ...     value="hello world",
+    ...     value_class="T"
+    ... )
+    >>> t.value
+    'hello world'
+    >>> t.text
+    'hello world'
+    ```
+    """
+    value_class = "T"
+
+    @property
+    def text(self) -> str:
+        """Returns the text content.
+
+        Returns:
+            str: The text content.
+        """
+        return self.value
+    
+class FlightRSCPayloadVersion(int, Enum):
+    """The RSCPayloadVersion. I have no idea what are the real names or version
+    codes, so i will just name them as old and new, will add more if find."""
+    old = 0
+    new = 1
+    
+class FlightRSCPayload(FlightElement):
+    """Represents the RCSPayload, which is the payload containing infos about the
+    page, and will lload it from a tree.
+
+    https://github.com/vercel/next.js/blob/965fe24d91d08567751339756e51f2cf9d0e3188/packages/next/src/server/app-render/types.ts#L224-L243
+    """
+    value_class = None
+
+    def _version(self) -> FlightRSCPayloadVersion:
+        if isinstance(self.value, list) and len(self.value) == 4:
+            return FlightRSCPayloadVersion.old
+        elif isinstance(self.value, dict) and "b" in self.value:
+            return FlightRSCPayloadVersion.new
+        else:
+            raise ValueError('unknown flight rcs payload version')
+
+    @property
+    def build_id(self) -> str:
+        """Gives the build id from the rscpayload.
+
+        Returns:
+            str: The build id.
+        """
+        match self._version():
+            case FlightRSCPayloadVersion.new:
+                return self.value["b"]
+            case FlightRSCPayloadVersion.old:
+                return self.value[3]["buildId"]
+            
+class FlightError(FlightElement):
+    """Represents a `"E"` (error) flight element. It contains an error.
+    
+    ```python
+    >>> fe = FlightText(
+    ...     value={"digest": "NEXT_NOT_FOUND"},
+    ...     value_class="E"
+    ... )
+    >>> fe.digest
+    'NEXT_NOT_FOUND'
+    ```"""
+    value_class = "E"
+
+    @property
+    def digest(self) -> str:
+        """The error code (digest).
+
+        Returns:
+            str: The error code.
+        """
+        return self.value["digest"]
+
+_types: dict[str, Type[FlightElement]] = {
+    item.value_class: item for item in [
+        FlightHintPreload,
+        FlightModule,
+        FlightText,
+        FlightError,
+    ]
+}
+def resolve_type(
+    value: Any,
+    value_class: str | None,
+    index: int,
+):
+    """Find the appropriate dataclass object to init the given value.
+
+    Args:
+        value (Any): The value of the flight data item.
+        value_class (str | None): The class of the flight data item.
+        index (int): The index the flight data.
+
+    Returns:
+        FlightElement: The appropriate element.
+    """
+    cls = None
+    if value_class is None:
+        if isinstance(value, list) \
+            and len(value) == 4 \
+            and value[0] == "$" \
+            and isinstance(value[1], str) \
+            and isinstance(value[3], dict):
+                if value[1].startswith("$"):
+                    if "buildId" in value[3]:
+                        cls = FlightRSCPayload
+                else:
+                    cls = FlightHTMLElement
+        elif isinstance(value, dict) and index == 0:
+            cls = FlightRSCPayload
+    elif value_class in _types:
+        cls = _types[value_class]
+    if cls is None:
+        if index == 0:
+            raise ValueError( 'Data at index 0 did not find any object '
+                              'to store its RSCPayload.' )
+        logger.warning( "Couldn't find an appropriate type for given "
+                       f"class `{value_class}`. Giving `FlightElement`." )
+        cls = FlightElement
+    return cls(value=value, value_class=value_class)

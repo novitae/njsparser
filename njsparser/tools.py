@@ -1,6 +1,7 @@
 from .utils import _supported_tree, make_tree, logger
 from .parser.next_data import has_next_data, get_next_data
 from .parser.flight_data import has_flight_data, get_flight_data
+from .parser.types import FlightRSCPayload
 from .parser.urls import get_next_static_urls, get_base_path, _NS
 from .parser.manifests import parse_buildmanifest, _manifest_paths
 
@@ -49,20 +50,11 @@ def find_build_id(value: _supported_tree) -> str | None:
             
     # We search for the builId in the flight data.
     elif (flight_data := get_flight_data(value=tree)) is not None:
-        if isinstance(flight_data[0], dict) \
-            and (b := flight_data[0].get("b")) is not None \
-            and isinstance(b, str):
-            return b
-        elif isinstance(flight_data[0], list) \
-            and flight_data[0][0] == "$" \
-            and flight_data[0][1].startswith("$L") \
-            and flight_data[0][2] is None \
-            and isinstance((d := flight_data[0][3]), dict) \
-            and "buildId" in d:
-            return d["buildId"]
+        if isinstance(flight_data[0], FlightRSCPayload):
+            return flight_data[0].build_id
         else:
             logger.warning( "Found flight data in the page, but " \
                             "couldnt find the build id. If are certain" \
                             " there is one, open an issue with your " \
-                            "html to investigate." )
+                            "html to investigate :)" )
             
