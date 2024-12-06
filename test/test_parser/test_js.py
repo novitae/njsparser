@@ -43,6 +43,7 @@ def test_unquoted_keys():
 def test_variable_substitution():
     assert loads('{key: value}', kwargs={"value": 42}) == {"key": 42}
     assert loads('[value, value]', kwargs={"value": "test"}) == ["test", "test"]
+    assert loads('{$: [_]}', kwargs={"$": "dollar", "_": "underscore"}) == {"$": ["underscore"]}
 
 def test_edge_cases():
     # Empty object and array

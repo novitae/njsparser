@@ -76,9 +76,15 @@ def test_FlightText():
     t = FlightText(**_flightTextPayload)
     assert t.value == t.text == hw
 
-_flightDataPayload = dict(value=None, value_class=None, index=1)
+_flightDataPayload_1 = dict(value=["$", "$L1", None, None], value_class=None, index=1)
+_flightDataPayload_2 = dict(value=["$", "$L1", None, {}], value_class=None, index=1)
 def test_FlightData():
-    assert FlightData(**_flightDataPayload).value is None
+    assert FlightData(**_flightDataPayload_1).content is None
+    assert FlightData(**_flightDataPayload_2).content == {}
+
+_flightEmptyDataPayload = dict(value=None, class_name=None, index=1)
+def test_FlightEmptyData():
+    assert FlightEmptyData(**_flightEmptyDataPayload).value is None
 
 _flightSpecialDataPayload = dict(value="$Sreact.suspense", value_class=None, index=1)
 def test_FlightSpecialData():
@@ -119,13 +125,13 @@ def test_FlightDataContainer():
     dcp = FlightDataContainer(**_flightDataContainerPayload)
     assert dcp.value == _flightDataContainerPayload["value"]
 
-_flightURLPlaceholderValuePayload = dict(
+_flightURLQuery = dict(
     value=(phv := ["key", "val", "d"]),
     value_class=None,
     index=1,
 )
-def test_FlightURLPlaceholderValue():
-    urlp = FlightURLPlaceholderValue(**_flightURLPlaceholderValuePayload)
+def test_FlightURLQuery():
+    urlp = FlightURLQuery(**_flightURLQuery)
     assert urlp.key == phv[0]
     assert urlp.val == phv[1]
 
@@ -161,9 +167,11 @@ def test_resolve_type():
     assert isinstance(resolve_type(**_flightHintPreloadPayload_2), FlightHintPreload)
     assert isinstance(resolve_type(**_flightModulePayload), FlightModule)
     assert isinstance(resolve_type(**_flightTextPayload), FlightText)
-    assert isinstance(resolve_type(**_flightDataPayload), FlightData)
+    assert isinstance(resolve_type(**_flightDataPayload_1), FlightData)
+    assert isinstance(resolve_type(**_flightDataPayload_2), FlightData)
+    assert isinstance(resolve_type(**_flightEmptyDataPayload), FlightEmptyData)
     assert isinstance(resolve_type(**_flightSpecialDataPayload), FlightSpecialData)
-    assert isinstance(resolve_type(**_flightURLPlaceholderValuePayload), FlightURLPlaceholderValue)
+    assert isinstance(resolve_type(**_flightURLQuery), FlightURLQuery)
     assert isinstance(resolve_type(**_flightDataContainerPayload), FlightDataContainer)
     assert isinstance(resolve_type(**_flightHTMLElementPayload_1), FlightHTMLElement)
     assert isinstance(resolve_type(**_flightHTMLElementPayload_2), FlightHTMLElement)

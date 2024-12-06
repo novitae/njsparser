@@ -1,30 +1,15 @@
 import re
-import barely_json
 from typing import Any
-from os.path import join
 
-from ..utils import logger
+from ..utils import logger, join
 from .urls import _NS
-from .js import loads, Parser
+from .js import loads
 
 _build_manifest_name, _ssg_manifest_name = "_buildManifest.js", "_ssgManifest.js"
 _build_manifest_path, _ssg_manifest_path = f"/{_build_manifest_name}", f"/{_ssg_manifest_name}"
 _manifest_paths = (_build_manifest_path, _ssg_manifest_path)
 
-# TODO: Find a better way to parse this.
-class _BuildManifestParser:
-    def __init__(self) -> None:
-        self.kwargs = {}
-
-    def resolver(self, value: Any, source: barely_json._source = None):
-        if source != "dict_key":
-            if value in self.kwargs:
-                return self.kwargs[value]
-            elif value in ("undefined", "void 0"):
-                return None
-        return barely_json.default_resolver(value=value)
-    
-_re_function_buildmanifest = re.compile(r"^function\((?P<keys>(?:\w+,)*\w)\)\s*{\s*return\s*(?P<content>{[\S\s]*})\s*}\((?P<values>.*?)\)")
+_re_function_buildmanifest = re.compile(r"^function\((?P<keys>(?:[\w$]+,)*[\w$]+)\)\s*{\s*return\s*(?P<content>{[\S\s]*})\s*}\((?P<values>.*?)\)")
 def parse_buildmanifest(script: str) -> dict[str, Any]:
     """Parses the buildmanifest script (`"/_buildManifest.js"`).
 
@@ -62,5 +47,5 @@ def get_build_manifest_path(build_id: str, base_path: str = None):
     Returns:
         str: The path of the build manifest.
     """
-    base_path = base_path or ""
+    base_path = "" if base_path is None else base_path
     return join(base_path, _NS, build_id, _build_manifest_name)

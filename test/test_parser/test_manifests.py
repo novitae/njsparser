@@ -12,6 +12,7 @@ def test_parse_buildmanifest():
     }(1), self.__BUILD_MANIFEST_CB && self.__BUILD_MANIFEST_CB();""") == {}
     assert parse_buildmanifest(app_osint_industries_yAzR27j6CjHLWW3VxUzzi_buildManifest) is not None
     assert parse_buildmanifest("self.__BUILD_MANIFEST=sdfnjjksdfn") is None
+    assert parse_buildmanifest(runpod_io_s4xe_TFYlTTFF_bw1HfD4_buildManifest) is not None
     with pytest.raises(ValueError):
         parse_buildmanifest("dfsfdn")
 

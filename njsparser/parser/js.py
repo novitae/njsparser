@@ -266,7 +266,7 @@ class Parser:
             str: The parsed variable name.
         """
         result = ""
-        while (p := self.peek_one()).isalnum() or p == "_":
+        while (p := self.peek_one()).isalnum() or p in "_$":
             c = self.consume_one()
             result += c
         return result

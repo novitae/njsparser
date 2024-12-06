@@ -1,13 +1,19 @@
-from typing import Type
+from typing import Type, TypeVar, List, Iterable, Callable, Generator, overload
 
 from .utils import _supported_tree, make_tree, logger
 from .parser.next_data import has_next_data, get_next_data
-from .parser.flight_data import has_flight_data, get_flight_data
+from .parser.flight_data import has_flight_data, get_flight_data, FD
 from .parser.types import FlightRSCPayload, FlightElement
 from .parser.urls import get_next_static_urls, get_base_path, _NS
 from .parser.manifests import _manifest_paths
 
-__all__ = ("has_nextjs", "find_build_id", "filter_flight_data")
+__all__ = (
+    "has_nextjs",
+    "find_build_id",
+    "finditer_in_flight_data",
+    "findall_in_flight_data",
+    "find_in_flight_data",
+)
 
 def has_nextjs(value: _supported_tree):
     """Tells if the page has some nextjs data in it.
@@ -20,6 +26,111 @@ def has_nextjs(value: _supported_tree):
     """
     return any([has_next_data(value=value), has_flight_data(value=value)])
 
+T = TypeVar('T', bound='FlightElement')
+C = Callable[[FlightElement], bool]
+
+@overload
+def finditer_in_flight_data(flight_data: FD, class_filters: Iterable[Type[T]] = None, callback: C = None) -> Generator[T, None, None]:
+    """
+    An iterator yielding flight data elements of specified types and matching a callback.
+
+    Args:
+        flight_data (dict[int, FlightElement]): The flight data. Typically obtained using
+            `njsparser.get_flight_data(...)`.
+        class_filters (List[Type[T]], optional): A list of classes to filter the flight
+            elements by type. If None, no type filtering is applied. Defaults to None.
+        callback (Callable[[FlightElement], bool], optional): A function used to further filter
+            elements. The function receives a single flight element as an argument and must
+            return `True` to include the element in the results, or `False` to exclude it.
+            For example, `lambda item: item.index >= 5` includes only elements with an `index`
+            attribute greater than or equal to 5. If None, all elements are included. Defaults to None.
+
+    Yields:
+        T: Flight elements matching the specified type and callback criteria.
+    """
+    ...
+
+@overload
+def finditer_in_flight_data(flight_data: FD, class_filters: None = None, callback: C = None) -> Generator[FlightElement, None, None]:
+    """See the main overload for `finditer_in_flight_data`."""
+    ...
+
+def finditer_in_flight_data(flight_data: FD, class_filters: list = None, callback: C = None):
+    for value in flight_data.values():
+        if (type(value) in class_filters if class_filters is not None else True) \
+                and (True if callback is None else callback(value)):
+            yield value
+
+@overload
+def findall_in_flight_data(flight_data: FD, class_filters: Iterable[Type[T]] = None, callback: C = None) -> List[T]:
+    """
+    A function returning all flight data elements of specified types and matching a callback.
+
+    Args:
+        flight_data (dict[int, FlightElement]): The flight data, typically obtained using
+            `njsparser.get_flight_data(...)`.
+        class_filters (List[Type[T]], optional): A list of classes to filter the flight
+            elements by type. If None, no type filtering is applied. Defaults to None.
+        callback (Callable[[FlightElement], bool], optional): A function used to further filter
+            elements. The function receives a single flight element as an argument and must
+            return `True` to include the element in the results, or `False` to exclude it.
+            For example, `lambda item: item.index >= 5` includes only elements with an `index`
+            attribute greater than or equal to 5. If None, all elements are included. Defaults to None.
+
+    Returns:
+        List[T]: A list of flight elements matching the specified type and callback criteria.
+    """
+    ...
+
+@overload
+def findall_in_flight_data(flight_data: FD, class_filters: None = None, callback: C = None) -> List[FlightElement]:
+    """See the main overload for `findall_in_flight_data`."""
+    ...
+
+def findall_in_flight_data(flight_data: FD, class_filters: Iterable[Type[T]] = None, callback: C = None):
+    return list(
+        finditer_in_flight_data(
+            flight_data=flight_data,
+            class_filters=class_filters,
+            callback=callback,
+        )
+    )
+
+@overload
+def find_in_flight_data(flight_data: FD, class_filters: Iterable[Type[T]] = None, callback: C = None) -> T | None:
+    """
+    Returns the first flight data element of specified types and matching a callback.
+
+    Args:
+        flight_data (dict[int, FlightElement]): The flight data, typically obtained using
+            `njsparser.get_flight_data(...)`.
+        class_filters (List[Type[T]], optional): A list of classes to filter the flight
+            elements by type. If None, no type filtering is applied. Defaults to None.
+        callback (Callable[[FlightElement], bool], optional): A function used to further filter
+            elements. The function receives a single flight element as an argument and must
+            return `True` to include the element in the results, or `False` to exclude it.
+            For example, `lambda item: item.index >= 5` includes only elements with an `index`
+            attribute greater than or equal to 5. If None, all elements are included. Defaults to None.
+
+    Returns:
+        T | None: The first flight element matching the specified type and callback criteria,
+        or None if no match is found.
+    """
+    ...
+
+@overload
+def find_in_flight_data(flight_data: FD, class_filters: None = None, callback: C = None) -> FlightElement | None:
+    """See the main overload for `find_in_flight_data`."""
+    ...
+
+def find_in_flight_data(flight_data: FD, class_filters: Iterable[Type[T]] = None, callback: C = None):
+    for item in finditer_in_flight_data(
+        flight_data=flight_data,
+        class_filters=class_filters,
+        callback=callback,
+    ):
+        return item
+        
 def find_build_id(value: _supported_tree) -> str | None:
     """Searches and return (or not) the build id of the given page.
 
@@ -52,32 +163,10 @@ def find_build_id(value: _supported_tree) -> str | None:
             
     # We search for the builId in the flight data.
     elif (flight_data := get_flight_data(value=tree)) is not None:
-        if isinstance(flight_data[0], FlightRSCPayload):
-            return flight_data[0].build_id
+        if (found := find_in_flight_data(flight_data, [FlightRSCPayload])) is not None:
+            return found.build_id
         else:
             logger.warning( "Found flight data in the page, but " \
                             "couldnt find the build id. If are certain" \
                             " there is one, open an issue with your " \
                             "html to investigate :)" )
-
-def filter_flight_data(
-    flight_data: dict[int, FlightElement],
-    class_filters: list[Type[FlightElement]],
-):
-    """Filters the flight data by returning only the items of the same
-    type as the ones in `class_filters`.
-
-    Args:
-        flight_data (dict[int, FlightElement]): The flight data, found
-            with `njsparser.parser.flight_data.get_flight_data(...)`.
-        class_filters (list[Type[FlightElement]]): The list of classes
-            the items of flight data should be in order to get returned.
-
-    Returns:
-        list[FlightElement]: The list of flight elements matching.
-    """
-    if class_filters:
-        return [ item for item in flight_data.values()
-                 if type(item) in class_filters ]
-    else:
-        return list(flight_data.values())

@@ -19,6 +19,10 @@ with open("test/swag_live_giz3a1H7OUzfxgxRHIdMx_buildManifest.js", "r") as read:
 with open("test/app_osint_industries_yAzR27j6CjHLWW3VxUzzi_buildManifest.js", "r") as read:
     app_osint_industries_yAzR27j6CjHLWW3VxUzzi_buildManifest = read.read()
 
+# Build manifest from runpod.io (function with lot of vars)
+with open("test/runpod_io_s4xe_TFYlTTFF_bw1HfD4_buildManifest.js", "r") as read:
+    runpod_io_s4xe_TFYlTTFF_bw1HfD4_buildManifest = read.read()
+
 # Has NextJS (with __next_data__)
 with open("test/m.soundcloud.com.html", "rb") as read:
     m_soundcloud_com_html = read.read()

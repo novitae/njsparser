@@ -109,8 +109,10 @@ def decode_raw_flight_data(raw_flight_data: _raw_f_data) -> List[str]:
 #                            ->        == "P" -> resolvePostponeProd
 #                            -> else          -> resolveModel
 
+FD = dict[int, FlightElement]
+
 _split_points = re.compile(rb"(?<!\\)\n[a-f0-9]+:")
-def parse_decoded_raw_flight_data(decoded_raw_flight_data: List[str]) -> dict[int, FlightElement]:
+def parse_decoded_raw_flight_data(decoded_raw_flight_data: List[str]) -> FD:
     # Here we join, then encode the decoded raw flight data. It is important to encode
     # it, otherwise some values in string will take way more characters, and the text
     # size announced in `"T"` will not be pointing to the correct text end.

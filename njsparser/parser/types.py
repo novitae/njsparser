@@ -16,10 +16,11 @@ __all__ = (
     "FlightModule",
     "FlightText",
     "FlightData",
+    "FlightEmptyData",
     "FlightSpecialData",
     "FlightHTMLElement",
     "FlightDataContainer",
-    "FlightURLPlaceholderValue",
+    "FlightURLQuery",
     "is_flight_data_obj",
     "FlightRSCPayloadVersion",
     "FlightRSCPayload",
@@ -195,7 +196,6 @@ class FlightModule(FlightElement):
         """
         return self.value[2]
     
-
 class FlightText(FlightElement):
     """Represents a `"T"` flight element. It simply contains text.
     
@@ -239,7 +239,16 @@ class FlightData(FlightElement):
     value: list | None
     value_class = None
 
-class FlightSpecialData(FlightData):
+    @property
+    def content(self) -> dict[str, Any]:
+        return self.value[3]
+    
+class FlightEmptyData(FlightElement):
+    """Represents flight data that is empty (`None`)."""
+    value: None
+    value_class = None
+
+class FlightSpecialData(FlightElement):
     """Represents any special data in the page. It looks like a string starting
     with a `"$"` character, such as `"$Sreact.suspense"`.
     
@@ -249,8 +258,10 @@ class FlightSpecialData(FlightData):
     '$Sreact.suspense'
     ```
     """
+    value: str
+    value_class = None
 
-class FlightHTMLElement(FlightData):
+class FlightHTMLElement(FlightElement):
     # https://github.com/facebook/react/blob/1c9b138714a69cd136a3d82769b1fd9a4b318953/packages/react-client/src/ReactFlightClient.js#L1324-L1526
     """Represents a `None` object containing HTML. It is used to store HTML. Here
     is an example:
@@ -276,6 +287,8 @@ class FlightHTMLElement(FlightData):
     {'rel': 'dns-prefetch', 'href': 'https://sentry.io'}
     ```
     """
+    value: list
+    value_class = None
 
     @property
     def tag(self) -> str:
@@ -304,7 +317,7 @@ class FlightHTMLElement(FlightData):
         """
         return self.value[3]
     
-class FlightDataContainer(FlightData):
+class FlightDataContainer(FlightElement):
     """Represents a list of `FlightData`. As seen on the example lower, you
     will have to instanciate them yourself if you want to treat each one of
     them as a FlightData object (see how `item` is done).
@@ -322,13 +335,17 @@ class FlightDataContainer(FlightData):
     >>> item = FlightData(value=fdc.value[0], value_class=fdc.value_class)
     >>> item.value
     ["$", "div", None, {}]
+    >>> item.content
+    {}
     """
+    value: list
+    value_class = None
 
-class FlightURLPlaceholderValue(FlightData):
+class FlightURLQuery(FlightElement):
     """Represents the values to be set in a url. Example:
 
     ```python
-    >>> phv = FlightURLPlaceholderValue(
+    >>> phv = FlightURLQuery(
     ...     value=[
     ...         "userId",
     ...         "624dc255c12744f2fdaf90c8",
@@ -341,6 +358,8 @@ class FlightURLPlaceholderValue(FlightData):
     >>> phv.val
     '624dc255c12744f2fdaf90c8'
     ```"""
+    value: list
+    value_class = None
 
     @property
     def key(self) -> str:
@@ -363,8 +382,7 @@ def is_flight_data_obj(value: Any):
         and len(value) == 4 \
         and value[0] == "$" \
         and isinstance(value[1], str) \
-        and (value[2] is None or isinstance(value[2], str)) \
-        and isinstance(value[3], (dict, list))
+        and (value[2] is None or isinstance(value[2], str))
 
 class FlightRSCPayloadVersion(int, Enum):
     """The RSCPayloadVersion. I have no idea what are the real names or version
@@ -454,7 +472,7 @@ def resolve_type(
         if isinstance(value, list):
             if is_flight_data_obj(value=value):
                 if value[1].startswith("$"):
-                    if "buildId" in value[3]:
+                    if value[3] is not None and "buildId" in value[3]:
                         cls = FlightRSCPayload
                     else:
                         cls = FlightData
@@ -463,9 +481,9 @@ def resolve_type(
             elif value and all([is_flight_data_obj(value=item) for item in value]):
                 cls = FlightDataContainer
             elif len(value) == 3 and value[2] == "d" and all(isinstance(item, str) for item in value):
-                cls = FlightURLPlaceholderValue
+                cls = FlightURLQuery
         elif value is None:
-            cls = FlightData
+            cls = FlightEmptyData
         elif isinstance(value, dict) and index == 0:
             cls = FlightRSCPayload
         elif isinstance(value, str) and value.startswith("$"):
