@@ -41,7 +41,7 @@ def analyze(url: str):
     build_manifest_resp = requests.get(f"{base_url}{build_manifest_path}")
     assert build_manifest_resp.status_code == 200, build_manifest_resp.status_code
     build_manifest = parser.parse_buildmanifest(script=build_manifest_resp.text)
-    sorted_pages = build_manifest["sortedPages"]
+    sorted_pages = build_manifest.get("sortedPages") or []
     if sorted_pages:
         print("Pages:")
         for page in sorted_pages:
