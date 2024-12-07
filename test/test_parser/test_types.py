@@ -82,7 +82,7 @@ def test_FlightData():
     assert FlightData(**_flightDataPayload_1).content is None
     assert FlightData(**_flightDataPayload_2).content == {}
 
-_flightEmptyDataPayload = dict(value=None, class_name=None, index=1)
+_flightEmptyDataPayload = dict(value=None, value_class=None, index=1)
 def test_FlightEmptyData():
     assert FlightEmptyData(**_flightEmptyDataPayload).value is None
 

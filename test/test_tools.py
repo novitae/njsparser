@@ -29,10 +29,12 @@ def test_findall_in_flight_data():
     assert findall_in_flight_data(flight_data) == list(flight_data.values())
     for item in findall_in_flight_data(flight_data, callback=lambda item: bool(item.index % 2)):
         assert item.index % 2 == 1
+    assert findall_in_flight_data(None) == []
 
 def test_find_in_flight_data():
     assert find_in_flight_data(flight_data, [FlightURLQuery]) is None
     assert find_in_flight_data(flight_data, [FlightRSCPayload]) == flight_data[0]
+    assert find_in_flight_data(None) is None
 
 def test_find_build_id():
     assert find_build_id(value=m_soundcloud_com_html) == "1733156665"

@@ -30,7 +30,7 @@ T = TypeVar('T', bound='FlightElement')
 C = Callable[[FlightElement], bool]
 
 @overload
-def finditer_in_flight_data(flight_data: FD, class_filters: Iterable[Type[T]] = None, callback: C = None) -> Generator[T, None, None]:
+def finditer_in_flight_data(flight_data: FD | None, class_filters: Iterable[Type[T]] = None, callback: C = None) -> Generator[T, None, None]:
     """
     An iterator yielding flight data elements of specified types and matching a callback.
 
@@ -51,11 +51,13 @@ def finditer_in_flight_data(flight_data: FD, class_filters: Iterable[Type[T]] = 
     ...
 
 @overload
-def finditer_in_flight_data(flight_data: FD, class_filters: None = None, callback: C = None) -> Generator[FlightElement, None, None]:
+def finditer_in_flight_data(flight_data: FD | None, class_filters: None = None, callback: C = None) -> Generator[FlightElement, None, None]:
     """See the main overload for `finditer_in_flight_data`."""
     ...
 
-def finditer_in_flight_data(flight_data: FD, class_filters: list = None, callback: C = None):
+def finditer_in_flight_data(flight_data: FD | None, class_filters: list = None, callback: C = None):
+    if flight_data is None:
+        return
     for value in flight_data.values():
         if (type(value) in class_filters if class_filters is not None else True) \
                 and (True if callback is None else callback(value)):
