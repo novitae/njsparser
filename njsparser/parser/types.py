@@ -161,24 +161,27 @@ class Module(Element):
     ... )
     >>> i.module_id
     30777
-    >>> i.module_scripts_raw()
+    >>> i.module_chunks_raw()
     {'71523': 'static/chunks/25c8a87d-0d1c991f726a4cc1.js', '10411': 'static/chunks/app/(webapp)/%5Blang%5D/(public)/user/layout-bd7c1d222b477529.js'}
-    >>> i.module_scripts
+    >>> i.module_chunks
     {'71523': '/_next/static/chunks/25c8a87d-0d1c991f726a4cc1.js', '10411': '/_next/static/chunks/app/(webapp)/%5Blang%5D/(public)/user/layout-bd7c1d222b477529.js'}
     >>> i.module_name
     'default'
     ```
     """
-    value: list
+    value: list | dict
     value_class = "I"
 
     def __post_init__(self):
         if ENABLE_TYPE_VERIF is True:
-            assert isinstance(self.value, list)
-            assert len(self.value) == 3
+            assert isinstance(self.value, (list, dict))
+            assert 3 <= len(self.value) <= 4
             assert isinstance(self.module_id, int)
-            assert isinstance(self.value[1], list)
-            assert len(self.value[1]) % 2 == 0
+            if isinstance(self.value, list):
+                assert isinstance(self.value[1], list)
+                assert len(self.value[1]) % 2 == 0
+            else:
+                assert isinstance(self.value["chunks"], list)
             assert isinstance(self.module_name, str)
 
     @property
@@ -188,9 +191,9 @@ class Module(Element):
         Returns:
             int: The module id.
         """
-        return self.value[0]
+        return self.value[0] if isinstance(self.value, list) else int(self.value["id"])
     
-    def module_scripts_raw(self) -> dict[str, str]:
+    def module_chunks_raw(self) -> dict[str, str]:
         """Returns the raw script[script id: script relative path].
 
         Returns:
@@ -199,16 +202,16 @@ class Module(Element):
         return dict({
             self.value[1][x]: self.value[1][x+1]
             for x in range(0, len(self.value), 2)
-        })
+        }) if isinstance(self.value, list) else dict([item.split(":", 1) for item in self.value["chunks"]])
     
     @property
-    def module_scripts(self):
+    def module_chunks(self):
         """The modules scripts id to their absolute path.
 
         Returns:
             dict[str, str]: The script map with absolute paths.
         """
-        return {key: join(_N, value) for key, value in self.module_scripts_raw().items()}
+        return {key: join(_N, value) for key, value in self.module_chunks_raw().items()}
     
     @property
     def module_name(self) -> str:
@@ -217,7 +220,19 @@ class Module(Element):
         Returns:
             str: The name of the module.
         """
-        return self.value[2]
+        return self.value[2] if isinstance(self.value, list) else self.value["name"]
+    
+    @property
+    def is_async(self) -> bool:
+        """Tells if the module loading is async or not.
+
+        Returns:
+            bool: True if it is.
+        """
+        if isinstance(self.value, dict):
+            return self.value["async"]
+        else:
+            return False
     
 @dataclass(frozen=True)
 class Text(Element):

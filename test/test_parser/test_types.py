@@ -51,7 +51,7 @@ def test_serializer_default():
         option=orjson.OPT_PASSTHROUGH_DATACLASS
     )
 
-_flightModulePayload = dict(
+_flightModulePayload_1 = dict(
     value=[
         30777,
         [
@@ -65,12 +65,32 @@ _flightModulePayload = dict(
     value_class="I",
     index=1,
 )
+_flightModulePayload_2 = dict(
+    value={
+        'id': '47858',
+        'chunks': [
+            '272:static/chunks/webpack-2f0e36f832c3608a.js',
+            '667:static/chunks/2443530c-7d590f93d1ab76bc.js',
+            '139:static/chunks/139-1e0b88e46566ba7f.js'
+        ],
+        'name': '',
+        'async': False
+    },
+    value_class="I",
+    index=1,
+)
 def test_Module():
-    i = Module(**_flightModulePayload)
+    i = Module(**_flightModulePayload_1)
     assert i.module_id == 30777
-    assert i.module_scripts_raw() == {'71523': 'static/chunks/25c8a87d-0d1c991f726a4cc1.js', '10411': 'static/chunks/app/(webapp)/%5Blang%5D/(public)/user/layout-bd7c1d222b477529.js'}
-    assert i.module_scripts == {'71523': '/_next/static/chunks/25c8a87d-0d1c991f726a4cc1.js', '10411': '/_next/static/chunks/app/(webapp)/%5Blang%5D/(public)/user/layout-bd7c1d222b477529.js'}
+    assert i.module_chunks_raw() == {'71523': 'static/chunks/25c8a87d-0d1c991f726a4cc1.js', '10411': 'static/chunks/app/(webapp)/%5Blang%5D/(public)/user/layout-bd7c1d222b477529.js'}
+    assert i.module_chunks == {'71523': '/_next/static/chunks/25c8a87d-0d1c991f726a4cc1.js', '10411': '/_next/static/chunks/app/(webapp)/%5Blang%5D/(public)/user/layout-bd7c1d222b477529.js'}
     assert i.module_name == "default"
+    assert i.is_async is False
+    i2 = Module(**_flightModulePayload_2)
+    assert i2.module_id == 47858
+    assert i2.module_chunks_raw() == {'272': 'static/chunks/webpack-2f0e36f832c3608a.js', '667': 'static/chunks/2443530c-7d590f93d1ab76bc.js', '139': 'static/chunks/139-1e0b88e46566ba7f.js'}
+    assert i2.module_name == ""
+    assert i2.is_async is False
 
 _flightTextPayload = dict(value=(hw := "hello world"), value_class="T", index=1)
 def test_Text():
@@ -172,7 +192,8 @@ def test_Error():
 def test_resolve_type():
     assert isinstance(resolve_type(**_flightHintPreloadPayload_1), HintPreload)
     assert isinstance(resolve_type(**_flightHintPreloadPayload_2), HintPreload)
-    assert isinstance(resolve_type(**_flightModulePayload), Module)
+    assert isinstance(resolve_type(**_flightModulePayload_1), Module)
+    assert isinstance(resolve_type(**_flightModulePayload_2), Module)
     assert isinstance(resolve_type(**_flightTextPayload), Text)
     assert isinstance(resolve_type(**_flightDataPayload_1), Data)
     assert isinstance(resolve_type(**_flightDataPayload_2), Data)
