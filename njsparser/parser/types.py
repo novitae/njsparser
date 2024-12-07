@@ -280,7 +280,7 @@ class Data(Element):
             assert self.content is None or isinstance(self.content, dict)
 
     @property
-    def content(self) -> dict[str, Any]:
+    def content(self) -> dict[str, Any] | None:
         return self.value[3]
     
 @dataclass(frozen=True)
