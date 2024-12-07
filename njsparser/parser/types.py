@@ -1,13 +1,14 @@
 from typing import Any, Literal, Type
 from lxml import etree
 from pydantic.dataclasses import dataclass
+from dataclasses import is_dataclass
 from dataclasses import asdict
 from enum import Enum
 
 from ..utils import logger, join
 from .urls import _N
 
-# TODO: Asserts in the __post_init__ to make sure the data fed isn't bullshit
+ENABLE_TYPE_VERIF = True
 
 __all__ = (
     "Element",
@@ -82,6 +83,14 @@ class HintPreload(Element):
     """
     value: list
     value_class = "HL"
+
+    def __post_init__(self):
+        if ENABLE_TYPE_VERIF is True:
+            assert isinstance(self.value, list)
+            assert 2 <= len(self.value) <= 3
+            assert isinstance(self.href, str)
+            assert isinstance(self.type_name, str)
+            assert self.attrs is None or isinstance(self.attrs, dict)
 
     @property
     def href(self) -> str:
@@ -160,6 +169,15 @@ class Module(Element):
     value: list
     value_class = "I"
 
+    def __post_init__(self):
+        if ENABLE_TYPE_VERIF is True:
+            assert isinstance(self.value, list)
+            assert len(self.value) == 3
+            assert isinstance(self.module_id, int)
+            assert isinstance(self.value[1], list)
+            assert len(self.value[1]) % 2 == 0
+            assert isinstance(self.module_name, str)
+
     @property
     def module_id(self) -> int:
         """Returns the module id.
@@ -216,6 +234,10 @@ class Text(Element):
     value: str
     value_class = "T"
 
+    def __post_init__(self):
+        if ENABLE_TYPE_VERIF is True:
+            assert isinstance(self.value, str)
+
     @property
     def text(self) -> str:
         """Returns the text content.
@@ -233,15 +255,26 @@ class Data(Element):
     
     ```python
     >>> fd = Data(
-    ...     value=None,
+    ...     value=["$", "$L1", None, None],
     ...     value_class=None,
     ... )
-    >>> fd.value
-    >>> print(fd.value)
+    >>> fd.content
+    >>> print(fd.content)
     None
+    >>> fd2 = Data(
+    ...     value=["$", "$L1", None, {}],
+    ...     value_class=None,
+    ... )
+    >>> fd2.content
+    {}
     ```"""
-    value: list | None
+    value: list
     value_class = None
+
+    def __post_init__(self):
+        if ENABLE_TYPE_VERIF is True:
+            assert is_flight_data_obj(self.value)
+            assert self.content is None or isinstance(self.content, dict)
 
     @property
     def content(self) -> dict[str, Any]:
@@ -249,9 +282,23 @@ class Data(Element):
     
 @dataclass(frozen=True)
 class EmptyData(Element):
-    """Represents flight data that is empty (`None`)."""
+    """Represents flight data that is empty (`None`).
+    
+    ```python
+    >>> ed = Data(
+    ...     value=None,
+    ...     value_class=None,
+    ... )
+    >>> ed.value
+    >>> print(ed.value)
+    None
+    """
     value: None
     value_class = None
+
+    def __post_init__(self):
+        if ENABLE_TYPE_VERIF is True:
+            assert self.value is None
 
 @dataclass(frozen=True)
 class SpecialData(Element):
@@ -266,6 +313,11 @@ class SpecialData(Element):
     """
     value: str
     value_class = None
+
+    def __post_init__(self):
+        if ENABLE_TYPE_VERIF is True:
+            assert isinstance(self.value, str)
+            assert self.value.startswith("$")
 
 @dataclass(frozen=True)
 class HTMLElement(Element):
@@ -296,6 +348,13 @@ class HTMLElement(Element):
     """
     value: list
     value_class = None
+
+    def __post_init__(self):
+        if ENABLE_TYPE_VERIF is True:
+            assert is_flight_data_obj(self.value)
+            assert isinstance(self.tag, str)
+            assert self.href is None or isinstance(self.tag, str)
+            assert isinstance(self.attrs, dict)
 
     @property
     def tag(self) -> str:
@@ -359,6 +418,8 @@ class DataContainer(Element):
                 ) for item in self.value
             ]
         )
+        if ENABLE_TYPE_VERIF is True:
+            assert all(is_dataclass(item) for item in self.value)
 
 @dataclass(frozen=True)
 class URLQuery(Element):
@@ -381,12 +442,29 @@ class URLQuery(Element):
     value: list
     value_class = None
 
+    def __post_init__(self):
+        if ENABLE_TYPE_VERIF is True:
+            assert len(self.value) == 3
+            assert isinstance(self.key, str)
+            assert isinstance(self.val, str)
+
     @property
     def key(self) -> str:
+        """The key of the URLQuery.
+
+        Returns:
+            str: The key.
+        """
         return self.value[0]
     
     @property
     def val(self) -> str:
+        """The value (in the meaning "corresponding to the key") of
+        the URLQuery.
+
+        Returns:
+            str: The value.
+        """
         return self.value[1]
 
 def is_flight_data_obj(value: Any):
@@ -420,6 +498,11 @@ class RSCPayload(Element):
     """
     value: dict | list
     value_class = None
+
+    def __post_init__(self):
+        if ENABLE_TYPE_VERIF is True:
+            assert is_flight_data_obj(self.value) or isinstance(self.value, dict)
+            assert isinstance(self.build_id, str)
 
     def _version(self) -> RSCPayloadVersion:
         if isinstance(self.value, list) and len(self.value) == 4:
@@ -457,6 +540,12 @@ class Error(Element):
     value: dict
     value_class = "E"
 
+    def __post_init__(self):
+        if ENABLE_TYPE_VERIF is True:
+            assert isinstance(self.value, dict)
+            assert "digest" in self.value
+            assert isinstance(self.digest, str)
+
     @property
     def digest(self) -> str:
         """The error code (digest).
@@ -478,6 +567,7 @@ def resolve_type(
     value: Any,
     value_class: str | None,
     index: int,
+    cls: Type[Element] = None,
 ):
     """Find the appropriate dataclass object to init the given value.
 
@@ -485,33 +575,37 @@ def resolve_type(
         value (Any): The value of the flight data item.
         value_class (str | None): The class of the flight data item.
         index (int): The index the flight data.
+        cls (Type[Element], optional): The class to use for the element.
+            Default on None, will find it by itself.
 
     Returns:
         Element: The appropriate element.
     """
-    cls = None
-    if value_class is None:
-        if isinstance(value, list):
-            if is_flight_data_obj(value=value):
-                if value[1].startswith("$"):
-                    if value[3] is not None and "buildId" in value[3]:
-                        cls = RSCPayload
+    if cls is not None and isinstance(cls, str):
+        cls = _tl2obj[cls]
+    else:
+        if value_class is None:
+            if isinstance(value, list):
+                if is_flight_data_obj(value=value):
+                    if value[1].startswith("$"):
+                        if value[3] is not None and "buildId" in value[3]:
+                            cls = RSCPayload
+                        else:
+                            cls = Data
                     else:
-                        cls = Data
+                        cls = HTMLElement
+                elif len(value) == 3 and value[2] == "d" and all(isinstance(item, str) for item in value):
+                    cls = URLQuery
                 else:
-                    cls = HTMLElement
-            elif len(value) == 3 and value[2] == "d" and all(isinstance(item, str) for item in value):
-                cls = URLQuery
-            else:
-                cls = DataContainer
-        elif value is None:
-            cls = EmptyData
-        elif isinstance(value, dict) and index == 0:
-            cls = RSCPayload
-        elif isinstance(value, str) and value.startswith("$"):
-            cls = SpecialData
-    elif value_class in _types:
-        cls = _types[value_class]
+                    cls = DataContainer
+            elif value is None:
+                cls = EmptyData
+            elif isinstance(value, dict) and index == 0:
+                cls = RSCPayload
+            elif isinstance(value, str) and value.startswith("$"):
+                cls = SpecialData
+        elif value_class in _types:
+            cls = _types[value_class]
     if cls is None:
         if index == 0:
             raise ValueError( 'Data at index 0 did not find any object '
@@ -520,3 +614,32 @@ def resolve_type(
                        f"class `{value_class}`. Giving `Element`." )
         cls = Element
     return cls(value=value, value_class=value_class, index=index)
+
+TL = Literal[
+    "Element",
+    "HintPreload",
+    "Module",
+    "Text",
+    "Data",
+    "EmptyData",
+    "SpecialData",
+    "HTMLElement",
+    "DataContainer",
+    "URLQuery",
+    "RSCPayload",
+    "Error",
+]
+_tl2obj = {
+    "Element": Element,
+    "HintPreload": HintPreload,
+    "Module": Module,
+    "Text": Text,
+    "Data": Data,
+    "EmptyData": EmptyData,
+    "SpecialData": SpecialData,
+    "HTMLElement": HTMLElement,
+    "DataContainer": DataContainer,
+    "URLQuery": URLQuery,
+    "RSCPayload": RSCPayload,
+    "Error": Error,
+}

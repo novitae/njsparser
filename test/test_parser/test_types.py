@@ -184,4 +184,13 @@ def test_resolve_type():
     assert isinstance(resolve_type(**_flightHTMLElementPayload_2), HTMLElement)
     assert isinstance(resolve_type(**_flightRSCPayload_old), RSCPayload)
     assert isinstance(resolve_type(**_flightRSCPayload_new), RSCPayload)
-    assert isinstance(resolve_type(**_flightErrorPayload), Error)
+    assert isinstance((error_obj := resolve_type(**_flightErrorPayload)), Error)
+    ready_serialized = serializer_default(error_obj)
+    assert isinstance(resolve_type(**ready_serialized), Error)
+    with pytest.raises(KeyError):
+        resolve_type(
+            value="val",
+            value_class=None,
+            index=None,
+            cls="WONTEXISTSTS",
+        )

@@ -1,9 +1,10 @@
-from typing import Type, TypeVar, List, Iterable, Callable, Generator, overload
+from typing import Type, List, Iterable, Callable, Generator, overload, Self
+from dataclasses import is_dataclass
 
 from .utils import _supported_tree, make_tree, logger
 from .parser.next_data import has_next_data, get_next_data
-from .parser.flight_data import has_flight_data, get_flight_data, FD
-from .parser.types import RSCPayload, Element, DataContainer
+from .parser.flight_data import has_flight_data, get_flight_data, FD, T
+from .parser.types import RSCPayload, Element, DataContainer, TL, _tl2obj, resolve_type
 from .parser.urls import get_next_static_urls, get_base_path, _NS
 from .parser.manifests import _manifest_paths
 
@@ -13,6 +14,7 @@ __all__ = (
     "finditer_in_flight_data",
     "findall_in_flight_data",
     "find_in_flight_data",
+    "BeautifulFD",
 )
 
 def has_nextjs(value: _supported_tree):
@@ -26,7 +28,6 @@ def has_nextjs(value: _supported_tree):
     """
     return any([has_next_data(value=value), has_flight_data(value=value)])
 
-T = TypeVar('T', bound='Element')
 C = Callable[[Element], bool]
 
 @overload
@@ -75,6 +76,8 @@ def finditer_in_flight_data(
 ):
     if flight_data is None:
         return
+    if class_filters is not None and isinstance(class_filters, set) is False:
+        class_filters = set(class_filters)
     for value in flight_data.values():
         if recursive is not False and type(value) is DataContainer:
             yield from finditer_in_flight_data(
@@ -90,7 +93,7 @@ def finditer_in_flight_data(
 
 @overload
 def findall_in_flight_data(
-    flight_data: FD,
+    flight_data: FD | None,
     class_filters: Iterable[Type[T]] = None,
     callback: C = None,
     recursive: bool | None = None,
@@ -120,7 +123,7 @@ def findall_in_flight_data(
 
 @overload
 def findall_in_flight_data(
-    flight_data: FD,
+    flight_data: FD | None,
     class_filters: None = None,
     callback: C = None,
     recursive: bool | None = None,
@@ -129,7 +132,7 @@ def findall_in_flight_data(
     ...
 
 def findall_in_flight_data(
-    flight_data: FD,
+    flight_data: FD | None,
     class_filters: Iterable[Type[T]] = None,
     callback: C = None,
     recursive: bool | None = None,
@@ -145,7 +148,7 @@ def findall_in_flight_data(
 
 @overload
 def find_in_flight_data(
-    flight_data: FD,
+    flight_data: FD | None,
     class_filters: Iterable[Type[T]] = None,
     callback: C = None,
     recursive: bool | None = None,
@@ -174,7 +177,7 @@ def find_in_flight_data(
 
 @overload
 def find_in_flight_data(
-    flight_data: FD,
+    flight_data: FD | None,
     class_filters: None = None,
     callback: C = None,
     recursive: bool | None = None,
@@ -183,7 +186,7 @@ def find_in_flight_data(
     ...
 
 def find_in_flight_data(
-    flight_data: FD,
+    flight_data: FD | None,
     class_filters: Iterable[Type[T]] = None,
     callback: C = None,
     recursive: bool | None = None,
@@ -235,3 +238,238 @@ def find_build_id(value: _supported_tree) -> str | None:
                             "couldnt find the build id. If are certain" \
                             " there is one, open an issue with your " \
                             "html to investigate :)" )
+
+class BeautifulFD:
+    """An object to simply the use and search through flight data.
+    
+    ```py
+    >>> response = requests.get(...)
+    >>> fd = BeautifulFD(response.text)
+    >>> fd.find()
+    """
+    def __init__(self, value: FD | _supported_tree):
+        """Creates the BeautifulFD object.
+
+        Args:
+            value (FD | _supported_tree): The string/bytes HTML, or lxml _Element
+                object, or the already made flight data (using the method at
+                `njsparser.get_flight_data`). 
+
+        Raises:
+            TypeError: The given `value` type is not supported.
+        """
+        if isinstance(value, dict) \
+            and all(isinstance(key, int) for key in value.keys()) \
+            and all(is_dataclass(value) for value in value.values()):
+            flight_data = value
+        elif isinstance(value, _supported_tree):
+            flight_data = get_flight_data(value=value)
+        else:
+            raise TypeError(f'Given type "{type(value)}" is unsupported')
+        self._flight_data = flight_data
+
+    def __repr__(self):
+        if self is None:
+            return f"BeautifulFD(None)"
+        else:
+            return f"BeautifulFD(<{len(self)} elements>)"
+        
+    def __len__(self):
+        return len(self._flight_data) if self else 0
+    
+    def __bool__(self):
+        return self._flight_data is not None
+    
+    def __iter__(self):
+        if self:
+            yield from self._flight_data.items()
+
+    def as_list(self) -> list[Element]:
+        """Returns the flight data as a list instead of a dict.
+
+        Returns:
+            list[Element]: The list of elements in the flight data.
+        """
+        return list(self._flight_data.values()) if self else []
+    
+    @classmethod
+    def from_list(cls, l: list[Element | dict], *, via_enumerate: bool = None) -> Self:
+        """Will load a from a list of flight data elements, or list of dict
+        representing them. If you dumped the `BeautifulFD` with the `.as_list()`
+        method, this is what you want to load it back in.
+
+        Args:
+            l (list[Element | dict]): The list of lfight data Elements or dicts.
+            via_enumerate (bool, optional): If objects do not contain their own
+                indexes, it will use their position in the given list as index
+                if set to `True`. Defaults to `False`.
+
+        Raises:
+            ValueError: Objects do not contain their own indexes, and `via_enumerate`
+                is `False`.
+
+        Returns:
+            Self: The BeautifulFD object.
+        """
+        if all(isinstance(item, dict) and "cls" in item for item in l):
+            l = [resolve_type(value=item, value_class=None, index=None) for item in l]
+        if all(isinstance(item.index, int) for item in l):
+            value = {item.index: item for item in l}
+        elif via_enumerate is not True:
+            raise ValueError( 'Cannot load the given list since elements do not '
+                              'all have an index written on them. You can set '
+                              '`via_enumerate` to `True` to put the elements '
+                              'indexes in the given list as their indexes. ' )
+        else:
+            value = dict(enumerate(l))
+        return cls(value=value)
+
+    @overload
+    def find_iter(
+        self,
+        class_filters: Iterable[Type[T] | TL] = None,
+        callback: C = None,
+        recursive: bool | None = None,
+    ) -> Generator[T, None, None]:
+        """Yields flight data elements of specified types and matching a callback.
+
+        Args:
+            flight_data (dict[int, Element]): The flight data. Typically obtained using
+                `njsparser.get_flight_data(...)`.
+            class_filters (List[Type[T] | TL], optional): A list of classes to filter the flight
+                elements by type. Can also be the names of the classes. If None, no type
+                filtering is applied. Defaults to None.
+            callback (Callable[[Element], bool], optional): A function used to further filter
+                elements. The function receives a single flight element as an argument and must
+                return `True` to include the element in the results, or `False` to exclude it.
+                For example, `lambda item: item.index >= 5` includes only elements with an `index`
+                attribute greater than or equal to 5. If None, all elements are included. Defaults to None.
+            recursive (bool, optional): Will we search recursively for the object ? Defaults
+                to True.
+
+        Yields:
+            T: Flight elements matching the specified type and callback criteria.
+        """
+        ...
+
+    @overload
+    def find_iter(
+        self,
+        class_filters: None = None,
+        callback: C = None,
+        recursive: bool | None = None,
+    ) -> Generator[Element, None, None]:
+        """See the main overload for `BeautifulFD.find_iter`."""
+        ...
+
+    def find_iter(self, class_filters = None, callback: C = None, recursive = None):
+        if class_filters is None:
+            new_class_filters = None
+        else:
+            new_class_filters = set()
+            for cls in class_filters:
+                if is_dataclass(cls):
+                    new_class_filters.add(cls)
+                else:
+                    if cls in _tl2obj:
+                        new_class_filters.add(_tl2obj[cls])
+                    else:
+                        raise KeyError( f'The class filter "{cls}" is not present in the list '
+                                        f'of conversion: {list(_tl2obj.keys())}.' )
+        yield from finditer_in_flight_data(
+            flight_data=self._flight_data,
+            class_filters=new_class_filters,
+            callback=callback,
+            recursive=recursive,
+        )
+
+    @overload
+    def find_all(
+        self,
+        class_filters: Iterable[Type[T] | TL] = None,
+        callback: C = None,
+        recursive: bool | None = None,
+    ) -> List[T]:
+        """Returns all elements of specified types and matching a callback.
+
+        Args:
+            class_filters (List[Type[T] | TL], optional): A list of classes to filter the flight
+                elements by type. Can also be the names of the classes. If None, no type
+                filtering is applied. Defaults to None.
+            callback (Callable[[Element], bool], optional): A function used to further filter
+                elements. The function receives a single flight element as an argument and must
+                return `True` to include the element in the results, or `False` to exclude it.
+                For example, `lambda item: item.index >= 5` includes only elements with an `index`
+                attribute greater than or equal to 5. If None, all elements are included. Defaults to None.
+            recursive (bool, optional): Will we search recursively for the object ? Defaults
+                to True.
+
+        Returns:
+            List[T]: A list of flight elements matching the specified type and callback criteria.
+        """
+        ...
+
+    @overload
+    def find_all(
+        self,
+        class_filters: None = None,
+        callback: C = None,
+        recursive: bool | None = None,
+    ) -> List[Element]:
+        """See the main overload for `BeautifulFD.find_all`."""
+        ...
+
+    def find_all(self, class_filters = None, callback = None, recursive = None):
+        return list(
+            self.find_iter(
+                class_filters=class_filters,
+                callback=callback,
+                recursive=recursive,
+            )
+        )
+
+    @overload
+    def find(
+        self,
+        class_filters: Iterable[Type[T] | TL] = None,
+        callback: C = None,
+        recursive: bool | None = None,
+    ) -> T | None:
+        """Returns the first element of specified types and matching a callback.
+
+        Args:
+            class_filters (List[Type[T] | TL], optional): A list of classes to filter the flight
+                elements by type. Can also be the names of the classes. If None, no type
+                filtering is applied. Defaults to None.
+            callback (Callable[[Element], bool], optional): A function used to further filter
+                elements. The function receives a single flight element as an argument and must
+                return `True` to include the element in the results, or `False` to exclude it.
+                For example, `lambda item: item.index >= 5` includes only elements with an `index`
+                attribute greater than or equal to 5. If None, all elements are included. Defaults to None.
+            recursive (bool, optional): Will we search recursively for the object ? Defaults
+                to True.
+
+        Returns:
+            T | None: The first flight element matching the specified type and callback criteria,
+            or None if no match is found.
+        """
+        ...
+
+    @overload
+    def find(
+        self,
+        class_filters: None = None,
+        callback: C = None,
+        recursive: bool | None = None,
+    ) -> Element | None:
+        """See the main overload for `BeautifulFD.find`."""
+        ...
+
+    def find(self, class_filters = None, callback = None, recursive = None):
+        for item in self.find_iter(
+            class_filters=class_filters,
+            callback=callback,
+            recursive=recursive,
+        ):
+            return item
+            

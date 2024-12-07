@@ -1,6 +1,6 @@
 """Part of the lib to interract with the nextjs data located looking like `self.__next_f.push(1, "...")`"""
 
-from typing import List, Union, Any
+from typing import List, Union, TypeVar
 import orjson
 import re
 import base64
@@ -109,7 +109,9 @@ def decode_raw_flight_data(raw_flight_data: _raw_f_data) -> List[str]:
 #                            ->        == "P" -> resolvePostponeProd
 #                            -> else          -> resolveModel
 
-FD = dict[int, Element]
+
+T = TypeVar('T', bound='Element')
+FD = dict[int, T]
 
 _split_points = re.compile(rb"(?<!\\)\n[a-f0-9]+:")
 def parse_decoded_raw_flight_data(decoded_raw_flight_data: List[str]) -> FD:

@@ -3,8 +3,12 @@ from njsparser.tools import (
     findall_in_flight_data,
     find_in_flight_data,
     find_build_id,
+    BeautifulFD,
 )
 from njsparser.parser.types import *
+from dataclasses import is_dataclass
+
+import pytest
 
 from . import *
 
@@ -44,3 +48,22 @@ def test_find_build_id():
     
     # Recursive search here
     assert find_build_id(value=club_fans_html) == "n2xbxZXkzoS6U5w7CgB-T"
+
+def test_BeautifulFD():
+    with pytest.raises(TypeError):
+        BeautifulFD(None)
+    fd = BeautifulFD(club_fans_html)
+    assert fd.find() is not None
+    assert isinstance(fd.find([Data]), Data)
+    assert isinstance(fd.find(["Data"]), Data)
+    with pytest.raises(KeyError):
+        fd.find(["Datsdfdsfa"])
+    for key, value in fd:
+        assert isinstance(key, int) and is_dataclass(value)
+        break
+    assert bool(BeautifulFD({})) is True
+    assert len(BeautifulFD({1: URLQuery(value=["x", "y", "d"], value_class=None, index=1)})) == 1
+    empty_bfd = BeautifulFD("<html></html>")
+    assert bool(empty_bfd) is False
+    assert len(BeautifulFD("<html></html>")) == 0
+    assert isinstance(empty_bfd.as_list(), list)
