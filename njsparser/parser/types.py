@@ -618,7 +618,7 @@ def resolve_type(
         cls = Element
     return cls(value=value, value_class=value_class, index=index)
 
-class T(TypedDict[str, Type[TE]]):
+class T(dict[str, Type[TE]]):
     Element = Element
     HintPreload = HintPreload
     Module = Module
