@@ -22,7 +22,7 @@ def has_flight_data(value: _supported_tree) -> bool:
     Returns:
         bool: True if the page contains any flight data.
     """
-    scripts = make_tree(value=value).xpath(f'.//script/text()')
+    scripts = make_tree(value=value).xpath('//script/text()')
     return any([_re_f_init.search(script) for script in scripts])
 
 def get_raw_flight_data(value: _supported_tree) -> _raw_f_data | None:
@@ -37,7 +37,7 @@ def get_raw_flight_data(value: _supported_tree) -> _raw_f_data | None:
         _raw_f_data | None: The `self.__next_f` array, or None if nothing found.
     """
     result, found_init = [], False
-    for script in make_tree(value=value).xpath('.//script/text()'):
+    for script in make_tree(value=value).xpath('//script/text()'):
         script: str = script.strip()
         if found_init is False and \
             (flight_data_init_match := _re_f_init.match(script)):

@@ -13,7 +13,7 @@ def get_next_data(value: _supported_tree) -> dict[str, Any]:
         dict[str, Any] | None: The dict content of the script, if there is, otherwise
             None.
     """
-    if len(nextdata := make_tree(value=value).xpath(".//script[@id='__NEXT_DATA__']/text()")):
+    if len(nextdata := make_tree(value=value).xpath("//script[@id='__NEXT_DATA__']/text()")):
         assert len(nextdata) == 1, f"invalid {len(nextdata)=}"
         return orjson.loads(nextdata.pop().strip())
     

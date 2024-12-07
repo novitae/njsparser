@@ -17,8 +17,8 @@ def get_next_static_urls(value: _supported_tree):
     """
     tree = make_tree(value=value)
     result: list[str] = [
-        *tree.xpath(f".//*[contains(@href, '{_NS}')]/@href"),
-        *tree.xpath(f".//*[contains(@src, '{_NS}')]/@src"),
+        *tree.xpath(f"//*[contains(@href, '{_NS}')]/@href"),
+        *tree.xpath(f"//*[contains(@src, '{_NS}')]/@src"),
     ]
     return result or None
 
