@@ -1,4 +1,4 @@
-from typing import Any, Literal, Type
+from typing import Any, Literal, Type, TypeVar, TypedDict
 from lxml import etree
 from pydantic.dataclasses import dataclass
 from dataclasses import is_dataclass
@@ -27,7 +27,10 @@ __all__ = (
     "RSCPayload",
     "Error",
     "resolve_type",
+    "T",
 )
+
+TE = TypeVar('TE', bound='Element')
 
 @dataclass(frozen=True)
 class Element:
@@ -615,20 +618,20 @@ def resolve_type(
         cls = Element
     return cls(value=value, value_class=value_class, index=index)
 
-TL = Literal[
-    "Element",
-    "HintPreload",
-    "Module",
-    "Text",
-    "Data",
-    "EmptyData",
-    "SpecialData",
-    "HTMLElement",
-    "DataContainer",
-    "URLQuery",
-    "RSCPayload",
-    "Error",
-]
+class T(TypedDict[str, Type[TE]]):
+    Element = Element
+    HintPreload = HintPreload
+    Module = Module
+    Text = Text
+    Data = Data
+    EmptyData = EmptyData
+    SpecialData = SpecialData
+    HTMLElement = HTMLElement
+    DataContainer = DataContainer
+    URLQuery = URLQuery
+    RSCPayload = RSCPayload
+    Error = Error
+
 _tl2obj = {
     "Element": Element,
     "HintPreload": HintPreload,

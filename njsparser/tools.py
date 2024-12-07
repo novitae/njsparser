@@ -3,8 +3,8 @@ from dataclasses import is_dataclass
 
 from .utils import _supported_tree, make_tree, logger
 from .parser.next_data import has_next_data, get_next_data
-from .parser.flight_data import has_flight_data, get_flight_data, FD, T
-from .parser.types import RSCPayload, Element, DataContainer, TL, _tl2obj, resolve_type
+from .parser.flight_data import has_flight_data, get_flight_data, FD, TE
+from .parser.types import RSCPayload, Element, DataContainer, T, _tl2obj, resolve_type
 from .parser.urls import get_next_static_urls, get_base_path, _NS
 from .parser.manifests import _manifest_paths
 
@@ -33,10 +33,10 @@ C = Callable[[Element], bool]
 @overload
 def finditer_in_flight_data(
     flight_data: FD | None,
-    class_filters: Iterable[Type[T]] = None,
+    class_filters: Iterable[Type[TE]] = None,
     callback: C = None,
     recursive: bool | None = None,
-) -> Generator[T, None, None]:
+) -> Generator[TE, None, None]:
     """
     An iterator yielding flight data elements of specified types and matching a callback.
 
@@ -94,10 +94,10 @@ def finditer_in_flight_data(
 @overload
 def findall_in_flight_data(
     flight_data: FD | None,
-    class_filters: Iterable[Type[T]] = None,
+    class_filters: Iterable[Type[TE]] = None,
     callback: C = None,
     recursive: bool | None = None,
-) -> List[T]:
+) -> List[TE]:
     """
     A function returning all flight data elements of specified types and matching a callback.
 
@@ -133,7 +133,7 @@ def findall_in_flight_data(
 
 def findall_in_flight_data(
     flight_data: FD | None,
-    class_filters: Iterable[Type[T]] = None,
+    class_filters: Iterable[Type[TE]] = None,
     callback: C = None,
     recursive: bool | None = None,
 ):
@@ -149,10 +149,10 @@ def findall_in_flight_data(
 @overload
 def find_in_flight_data(
     flight_data: FD | None,
-    class_filters: Iterable[Type[T]] = None,
+    class_filters: Iterable[Type[TE]] = None,
     callback: C = None,
     recursive: bool | None = None,
-) -> T | None:
+) -> TE | None:
     """
     Returns the first flight data element of specified types and matching a callback.
 
@@ -187,7 +187,7 @@ def find_in_flight_data(
 
 def find_in_flight_data(
     flight_data: FD | None,
-    class_filters: Iterable[Type[T]] = None,
+    class_filters: Iterable[Type[TE]] = None,
     callback: C = None,
     recursive: bool | None = None,
 ):
@@ -327,16 +327,16 @@ class BeautifulFD:
     @overload
     def find_iter(
         self,
-        class_filters: Iterable[Type[T] | TL] = None,
+        class_filters: Iterable[Type[TE] | T] = None,
         callback: C = None,
         recursive: bool | None = None,
-    ) -> Generator[T, None, None]:
+    ) -> Generator[TE, None, None]:
         """Yields flight data elements of specified types and matching a callback.
 
         Args:
             flight_data (dict[int, Element]): The flight data. Typically obtained using
                 `njsparser.get_flight_data(...)`.
-            class_filters (List[Type[T] | TL], optional): A list of classes to filter the flight
+            class_filters (List[Type[T] | T], optional): A list of classes to filter the flight
                 elements by type. Can also be the names of the classes. If None, no type
                 filtering is applied. Defaults to None.
             callback (Callable[[Element], bool], optional): A function used to further filter
@@ -386,14 +386,14 @@ class BeautifulFD:
     @overload
     def find_all(
         self,
-        class_filters: Iterable[Type[T] | TL] = None,
+        class_filters: Iterable[Type[TE] | T] = None,
         callback: C = None,
         recursive: bool | None = None,
-    ) -> List[T]:
+    ) -> List[TE]:
         """Returns all elements of specified types and matching a callback.
 
         Args:
-            class_filters (List[Type[T] | TL], optional): A list of classes to filter the flight
+            class_filters (List[Type[T] | T], optional): A list of classes to filter the flight
                 elements by type. Can also be the names of the classes. If None, no type
                 filtering is applied. Defaults to None.
             callback (Callable[[Element], bool], optional): A function used to further filter
@@ -431,14 +431,14 @@ class BeautifulFD:
     @overload
     def find(
         self,
-        class_filters: Iterable[Type[T] | TL] = None,
+        class_filters: Iterable[Type[TE] | T] = None,
         callback: C = None,
         recursive: bool | None = None,
-    ) -> T | None:
+    ) -> TE | None:
         """Returns the first element of specified types and matching a callback.
 
         Args:
-            class_filters (List[Type[T] | TL], optional): A list of classes to filter the flight
+            class_filters (List[Type[T] | T], optional): A list of classes to filter the flight
                 elements by type. Can also be the names of the classes. If None, no type
                 filtering is applied. Defaults to None.
             callback (Callable[[Element], bool], optional): A function used to further filter
@@ -472,4 +472,3 @@ class BeautifulFD:
             recursive=recursive,
         ):
             return item
-            

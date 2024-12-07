@@ -7,7 +7,7 @@ import base64
 from enum import Enum
 
 from ..utils import make_tree, _supported_tree
-from .types import resolve_type, Element
+from .types import resolve_type, Element, TE
 
 _raw_f_data = List[Union[list[int], list[int, str]]]
 _re_f_init = re.compile(r'\(self\.__next_f\s?=\s?self\.__next_f\s?\|\|\s?\[\]\)\.push\((\[.+?\])\)')
@@ -110,8 +110,7 @@ def decode_raw_flight_data(raw_flight_data: _raw_f_data) -> List[str]:
 #                            -> else          -> resolveModel
 
 
-T = TypeVar('T', bound='Element')
-FD = dict[int, T]
+FD = dict[int, TE]
 
 _split_points = re.compile(rb"(?<!\\)\n[a-f0-9]+:")
 def parse_decoded_raw_flight_data(decoded_raw_flight_data: List[str]) -> FD:
