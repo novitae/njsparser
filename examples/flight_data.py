@@ -8,7 +8,7 @@ response = requests.get(
 )
 flight_data = njsparser.get_flight_data(value=response.text)
 assert flight_data is not None
-for filtered_flight_data in njsparser.finditer_in_flight_data(flight_data, [njsparser.FlightData]):
+for filtered_flight_data in njsparser.finditer_in_flight_data(flight_data, [njsparser.Data]):
     if filtered_flight_data.content is not None:
         break
 else:

@@ -10,46 +10,47 @@ from .urls import _N
 # TODO: Asserts in the __post_init__ to make sure the data fed isn't bullshit
 
 __all__ = (
-    "FlightElement",
+    "Element",
     "serializer_default",
-    "FlightHintPreload",
-    "FlightModule",
-    "FlightText",
-    "FlightData",
-    "FlightEmptyData",
-    "FlightSpecialData",
-    "FlightHTMLElement",
-    "FlightDataContainer",
-    "FlightURLQuery",
+    "HintPreload",
+    "Module",
+    "Text",
+    "Data",
+    "EmptyData",
+    "SpecialData",
+    "HTMLElement",
+    "DataContainer",
+    "URLQuery",
     "is_flight_data_obj",
-    "FlightRSCPayloadVersion",
-    "FlightRSCPayload",
-    "FlightError",
+    "RSCPayloadVersion",
+    "RSCPayload",
+    "Error",
     "resolve_type",
 )
 
 @dataclass(frozen=True)
-class FlightElement:
+class Element:
     "An element contained in flight data"
     value: Any
     "The value of the element."
     value_class: str | None
     "The class of the value."
-    index: int
+    index: int | None = None
     "The index of the item in the flight data."
 
 def serializer_default(obj: Any):
-    if isinstance(obj, FlightElement):
+    if isinstance(obj, Element):
         return {**asdict(obj=obj), "cls": type(obj).__name__}
     else:
         raise TypeError(type(obj))
 
-class FlightHintPreload(FlightElement):
+@dataclass(frozen=True)
+class HintPreload(Element):
     """Represents a `"HL"` object. It is used to place some `<link>` tags into
     the head of the document. Here are some examples of values:
 
     ```python
-    >>> hl1 = FlightHintPreload(
+    >>> hl1 = HintPreload(
     ...     value=[
     ...         "/_next/static/media/93f479601ee12b01-s.p.woff2",
     ...         "font",
@@ -64,7 +65,7 @@ class FlightHintPreload(FlightElement):
     >>> hl1.attrs
     {"crossOrigin": "", "type": "font/woff2"}
     >>> 
-    >>> hl2 = FlightHintPreload(
+    >>> hl2 = HintPreload(
     ...     value=[
     ...         "/_next/static/css/baf446a5c20b5fd4.css?dpl=dpl_F2qLi1zuzNsnuiFMqRXyYU9dbJYw",
     ...         "style"
@@ -127,12 +128,13 @@ class FlightHintPreload(FlightElement):
     #                                         'supported, please open an issue about it.' )
     #     return etree.tostring(element, method="html").decode("utf-8")
 
-class FlightModule(FlightElement):
+@dataclass(frozen=True)
+class Module(Element):
     """Represents a `"I"` object. It is used to import some modules (list of
     scripts). Here is an usage example:
 
     ```python
-    >>> i = FlightModule(
+    >>> i = Module(
     ...     value=[
     ...         30777,
     ...         [
@@ -196,11 +198,12 @@ class FlightModule(FlightElement):
         """
         return self.value[2]
     
-class FlightText(FlightElement):
+@dataclass(frozen=True)
+class Text(Element):
     """Represents a `"T"` flight element. It simply contains text.
     
     ```python
-    >>> t = FlightText(
+    >>> t = Text(
     ...     value="hello world",
     ...     value_class="T"
     ... )
@@ -222,13 +225,14 @@ class FlightText(FlightElement):
         """
         return self.value
     
-class FlightData(FlightElement):
+@dataclass(frozen=True)
+class Data(Element):
     """Represents data in the flight content. It will only be used if the value
     is None. Otherwise it's only here for inherithence of other data objects of
     `value_class` `None`.
     
     ```python
-    >>> fd = FlightData(
+    >>> fd = Data(
     ...     value=None,
     ...     value_class=None,
     ... )
@@ -243,17 +247,19 @@ class FlightData(FlightElement):
     def content(self) -> dict[str, Any]:
         return self.value[3]
     
-class FlightEmptyData(FlightElement):
+@dataclass(frozen=True)
+class EmptyData(Element):
     """Represents flight data that is empty (`None`)."""
     value: None
     value_class = None
 
-class FlightSpecialData(FlightElement):
+@dataclass(frozen=True)
+class SpecialData(Element):
     """Represents any special data in the page. It looks like a string starting
     with a `"$"` character, such as `"$Sreact.suspense"`.
     
     ```python
-    >>> fsd = FlightSpecialData(value="$Sreact.suspense", value_class=None)
+    >>> fsd = SpecialData(value="$Sreact.suspense", value_class=None)
     >>> fsd.value
     '$Sreact.suspense'
     ```
@@ -261,13 +267,14 @@ class FlightSpecialData(FlightElement):
     value: str
     value_class = None
 
-class FlightHTMLElement(FlightElement):
+@dataclass(frozen=True)
+class HTMLElement(Element):
     # https://github.com/facebook/react/blob/1c9b138714a69cd136a3d82769b1fd9a4b318953/packages/react-client/src/ReactFlightClient.js#L1324-L1526
     """Represents a `None` object containing HTML. It is used to store HTML. Here
     is an example:
 
     ```python
-    >>> h = FlightHTMLElement(
+    >>> h = HTMLElement(
     ...     value=[
     ...         "$",
     ...         "link",
@@ -317,13 +324,11 @@ class FlightHTMLElement(FlightElement):
         """
         return self.value[3]
     
-class FlightDataContainer(FlightElement):
-    """Represents a list of `FlightData`. As seen on the example lower, you
-    will have to instanciate them yourself if you want to treat each one of
-    them as a FlightData object (see how `item` is done).
-
+@dataclass(frozen=True)
+class DataContainer(Element):
+    """Represents a list of `Data`. Example:
     ```py
-    >>> fdc = FlightDataContainer(
+    >>> fdc = DataContainer(
     ...     value=[
     ...         ["$", "div", None, {}],
     ...         ["$", "link", "https://sentry.io", {"rel": "dns-prefetch", "href": "https://sentry.io"}
@@ -331,21 +336,36 @@ class FlightDataContainer(FlightElement):
     ...     value_class=None
     ... )
     >>> fdc.value
-    [["$", "div", None, {}], ["$", "link", "https://sentry.io", {"rel": "dns-prefetch", "href": "https://sentry.io"}]]
-    >>> item = FlightData(value=fdc.value[0], value_class=fdc.value_class)
-    >>> item.value
+    [HTMLElement(value=['$', 'div', None, {}], value_class=None, index=None), HTMLElement(value=['$', 'link', 'https://sentry.io', {'rel': 'dns-prefetch', 'href': 'https://sentry.io'}], value_class=None, index=None)]
+    >>> item[0]
+    HTMLElement(value=['$', 'div', None, {}], value_class=None, index=None)
+    >>> item[0].value
     ["$", "div", None, {}]
-    >>> item.content
+    >>> item[0].content
     {}
     """
     value: list
     value_class = None
 
-class FlightURLQuery(FlightElement):
+    def __post_init__(self):
+        object.__setattr__(
+            self,
+            "value",
+            [
+                resolve_type(
+                    value=item,
+                    value_class=None,
+                    index=None,
+                ) for item in self.value
+            ]
+        )
+
+@dataclass(frozen=True)
+class URLQuery(Element):
     """Represents the values to be set in a url. Example:
 
     ```python
-    >>> phv = FlightURLQuery(
+    >>> phv = URLQuery(
     ...     value=[
     ...         "userId",
     ...         "624dc255c12744f2fdaf90c8",
@@ -384,13 +404,14 @@ def is_flight_data_obj(value: Any):
         and isinstance(value[1], str) \
         and (value[2] is None or isinstance(value[2], str))
 
-class FlightRSCPayloadVersion(int, Enum):
+class RSCPayloadVersion(int, Enum):
     """The RSCPayloadVersion. I have no idea what are the real names or version
     codes, so i will just name them as old and new, will add more if find."""
     old = 0
     new = 1
     
-class FlightRSCPayload(FlightElement):
+@dataclass(frozen=True)
+class RSCPayload(Element):
     """Represents the RCSPayload, which is the payload containing infos about the
     page. It contains a tree that, read by nextjs and react, will load the whole
     page correctly.
@@ -400,11 +421,11 @@ class FlightRSCPayload(FlightElement):
     value: dict | list
     value_class = None
 
-    def _version(self) -> FlightRSCPayloadVersion:
+    def _version(self) -> RSCPayloadVersion:
         if isinstance(self.value, list) and len(self.value) == 4:
-            return FlightRSCPayloadVersion.old
+            return RSCPayloadVersion.old
         elif isinstance(self.value, dict) and "b" in self.value:
-            return FlightRSCPayloadVersion.new
+            return RSCPayloadVersion.new
         else:
             raise ValueError('unknown flight rcs payload version')
 
@@ -416,16 +437,17 @@ class FlightRSCPayload(FlightElement):
             str: The build id.
         """
         match self._version():
-            case FlightRSCPayloadVersion.new:
+            case RSCPayloadVersion.new:
                 return self.value["b"]
-            case FlightRSCPayloadVersion.old:
+            case RSCPayloadVersion.old:
                 return self.value[3]["buildId"]
             
-class FlightError(FlightElement):
+@dataclass(frozen=True)
+class Error(Element):
     """Represents a `"E"` (error) flight element. It contains an error.
     
     ```python
-    >>> fe = FlightText(
+    >>> fe = Text(
     ...     value={"digest": "NEXT_NOT_FOUND"},
     ...     value_class="E"
     ... )
@@ -444,12 +466,12 @@ class FlightError(FlightElement):
         """
         return self.value["digest"]
 
-_types: dict[str, Type[FlightElement]] = {
+_types: dict[str, Type[Element]] = {
     item.value_class: item for item in [
-        FlightHintPreload,
-        FlightModule,
-        FlightText,
-        FlightError,
+        HintPreload,
+        Module,
+        Text,
+        Error,
     ]
 }
 def resolve_type(
@@ -465,7 +487,7 @@ def resolve_type(
         index (int): The index the flight data.
 
     Returns:
-        FlightElement: The appropriate element.
+        Element: The appropriate element.
     """
     cls = None
     if value_class is None:
@@ -473,21 +495,21 @@ def resolve_type(
             if is_flight_data_obj(value=value):
                 if value[1].startswith("$"):
                     if value[3] is not None and "buildId" in value[3]:
-                        cls = FlightRSCPayload
+                        cls = RSCPayload
                     else:
-                        cls = FlightData
+                        cls = Data
                 else:
-                    cls = FlightHTMLElement
-            elif value and all([is_flight_data_obj(value=item) for item in value]):
-                cls = FlightDataContainer
+                    cls = HTMLElement
             elif len(value) == 3 and value[2] == "d" and all(isinstance(item, str) for item in value):
-                cls = FlightURLQuery
+                cls = URLQuery
+            else:
+                cls = DataContainer
         elif value is None:
-            cls = FlightEmptyData
+            cls = EmptyData
         elif isinstance(value, dict) and index == 0:
-            cls = FlightRSCPayload
+            cls = RSCPayload
         elif isinstance(value, str) and value.startswith("$"):
-            cls = FlightSpecialData
+            cls = SpecialData
     elif value_class in _types:
         cls = _types[value_class]
     if cls is None:
@@ -495,6 +517,6 @@ def resolve_type(
             raise ValueError( 'Data at index 0 did not find any object '
                               'to store its RSCPayload.' )
         logger.warning( "Couldn't find an appropriate type for given "
-                       f"class `{value_class}`. Giving `FlightElement`." )
-        cls = FlightElement
+                       f"class `{value_class}`. Giving `Element`." )
+        cls = Element
     return cls(value=value, value_class=value_class, index=index)
