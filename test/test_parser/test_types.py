@@ -1,5 +1,5 @@
 from njsparser.parser.types import *
-from njsparser.tools import findall_in_flight_data
+from njsparser.tools import findall_in_flight_data, default
 from dataclasses import FrozenInstanceError
 from pydantic import ValidationError
 import orjson
@@ -47,7 +47,7 @@ def test_HintPreload():
 def test_serializer_default():
     orjson.dumps(
         Element(value="", value_class="", index=1),
-        default=serializer_default,
+        default=default,
         option=orjson.OPT_PASSTHROUGH_DATACLASS
     )
 
@@ -152,6 +152,29 @@ def test_DataContainer():
     assert findall_in_flight_data(fd, [RSCPayload], recursive=False) == []
     assert findall_in_flight_data(fd, [RSCPayload]) == []
 
+_flightDataParentPayload = dict(
+    value=[
+        "$",
+        "$L16",
+        None,
+        {
+            "children": [
+                "$",
+                "$L17",
+                None,
+                {
+                    "profile": {}
+                }
+            ]
+        }
+    ],
+    value_class=None,
+    index=None
+)
+def test_DataParent():
+    dp = DataParent(**_flightDataParentPayload)
+    assert dp.children.content == {"profile": {}}
+
 _flightURLQuery = dict(
     value=(phv := ["key", "val", "d"]),
     value_class=None,
@@ -206,7 +229,7 @@ def test_resolve_type():
     assert isinstance(resolve_type(**_flightRSCPayload_old), RSCPayload)
     assert isinstance(resolve_type(**_flightRSCPayload_new), RSCPayload)
     assert isinstance((error_obj := resolve_type(**_flightErrorPayload)), Error)
-    ready_serialized = serializer_default(error_obj)
+    ready_serialized = default(error_obj)
     assert isinstance(resolve_type(**ready_serialized), Error)
     with pytest.raises(KeyError):
         resolve_type(

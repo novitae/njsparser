@@ -2,7 +2,6 @@ from typing import Any, Literal, Type, TypeVar, TypedDict
 from lxml import etree
 from pydantic.dataclasses import dataclass
 from dataclasses import is_dataclass
-from dataclasses import asdict
 from enum import Enum
 
 from ..utils import logger, join
@@ -12,7 +11,6 @@ ENABLE_TYPE_VERIF = True
 
 __all__ = (
     "Element",
-    "serializer_default",
     "HintPreload",
     "Module",
     "Text",
@@ -21,6 +19,7 @@ __all__ = (
     "SpecialData",
     "HTMLElement",
     "DataContainer",
+    "DataParent",
     "URLQuery",
     "is_flight_data_obj",
     "RSCPayloadVersion",
@@ -41,12 +40,6 @@ class Element:
     "The class of the value."
     index: int | None = None
     "The index of the item in the flight data."
-
-def serializer_default(obj: Any):
-    if isinstance(obj, Element):
-        return {**asdict(obj=obj), "cls": type(obj).__name__}
-    else:
-        raise TypeError(type(obj))
 
 @dataclass(frozen=True)
 class HintPreload(Element):
@@ -440,6 +433,58 @@ class DataContainer(Element):
             assert all(is_dataclass(item) for item in self.value)
 
 @dataclass(frozen=True)
+class DataParent(Element):
+    """Represents an object that has only one key, a `"children"` key.
+    
+    ```py
+    >>> dp = DataParent(
+    ...     value=[
+    ...         "$",
+    ...         "$L16",
+    ...         None,
+    ...         {
+    ...             "children": [
+    ...                 "$",
+    ...                 "$L17",
+    ...                 None,
+    ...                 {
+    ...                     "profile": {}
+    ...                 }
+    ...             ]
+    ...         }
+    ...     ],
+    ...     value_class=None,
+    ...     index=None
+    ... )
+    >>> dp.children
+    {"profile": {}}
+    """
+    value: list
+    value_class = None
+
+    def __post_init__(self):
+        self.value[3].__setitem__(
+            "children",
+            resolve_type(
+                value=self.value[3]["children"],
+                value_class=None,
+                index=None,
+            )
+        )
+        if ENABLE_TYPE_VERIF is True:
+            assert is_flight_data_obj(self.value)
+            assert is_dataclass(self.children)
+
+    @property
+    def children(self) -> "AnyElement":
+        """Returns the children of the parent element.
+
+        Returns:
+            Element: The children element.
+        """
+        return self.value[3]["children"]
+
+@dataclass(frozen=True)
 class URLQuery(Element):
     """Represents the values to be set in a url. Example:
 
@@ -573,6 +618,8 @@ class Error(Element):
         """
         return self.value["digest"]
 
+_element_keys = set(["value", "value_class", "index"])
+_dumped_element_keys = _element_keys.union({"cls"})
 _types: dict[str, Type[Element]] = {
     item.value_class: item for item in [
         HintPreload,
@@ -586,7 +633,7 @@ def resolve_type(
     value_class: str | None,
     index: int,
     cls: Type[Element] = None,
-):
+) -> "AnyElement":
     """Find the appropriate dataclass object to init the given value.
 
     Args:
@@ -599,15 +646,21 @@ def resolve_type(
     Returns:
         Element: The appropriate element.
     """
-    if cls is not None and isinstance(cls, str):
+    if isinstance(value, dict) and _element_keys <= set(value.keys()):
+        return resolve_type(**value)
+    elif cls is not None and isinstance(cls, str):
         cls = _tl2obj[cls]
     else:
         if value_class is None:
             if isinstance(value, list):
                 if is_flight_data_obj(value=value):
                     if value[1].startswith("$"):
-                        if value[3] is not None and "buildId" in value[3]:
+                        if value[3] is None:
+                            cls = Data
+                        elif "buildId" in value[3]:
                             cls = RSCPayload
+                        elif len(value[3]) == 1 and "children" in value[3]:
+                            cls = DataParent
                         else:
                             cls = Data
                     else:
@@ -643,9 +696,13 @@ class T(dict[str, Type[TE]]):
     SpecialData = SpecialData
     HTMLElement = HTMLElement
     DataContainer = DataContainer
+    DataParent = DataParent
     URLQuery = URLQuery
     RSCPayload = RSCPayload
     Error = Error
+
+AnyElement = Element | HintPreload | Module | Text | Data | EmptyData | SpecialData | \
+    HTMLElement | DataContainer | DataParent | URLQuery | RSCPayload | Error
 
 _tl2obj = {
     "Element": Element,
@@ -657,6 +714,7 @@ _tl2obj = {
     "SpecialData": SpecialData,
     "HTMLElement": HTMLElement,
     "DataContainer": DataContainer,
+    "DataParent": DataParent,
     "URLQuery": URLQuery,
     "RSCPayload": RSCPayload,
     "Error": Error,

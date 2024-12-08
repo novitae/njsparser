@@ -4,6 +4,7 @@ from njsparser.tools import (
     find_in_flight_data,
     find_build_id,
     BeautifulFD,
+    resolve_type,
 )
 from njsparser.parser.types import *
 from dataclasses import is_dataclass
@@ -35,10 +36,13 @@ def test_findall_in_flight_data():
         assert item.index % 2 == 1
     assert findall_in_flight_data(None) == []
 
+_recursive_data = {"value": [{"value": None,"value_class": None,"index": None},{"value": False,"value_class": None,"index": None},{"value": ["$","$L16",None,{"children": ["$","$L17",None,{"profile": {}}]}],"value_class": None,"index": None}],"value_class": None,"index": 5,"cls": "DataContainer"}
 def test_find_in_flight_data():
     assert find_in_flight_data(flight_data, [URLQuery]) is None
     assert find_in_flight_data(flight_data, [RSCPayload]) == flight_data[0]
     assert find_in_flight_data(None) is None
+    assert find_in_flight_data({0: resolve_type(**_recursive_data)}, [Data]).content == {"profile": {}}
+    assert find_in_flight_data({0: resolve_type(**_recursive_data)}, [Data], recursive=False) is None
 
 def test_find_build_id():
     assert find_build_id(value=m_soundcloud_com_html) == "1733156665"

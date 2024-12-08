@@ -1,10 +1,10 @@
-from typing import Type, List, Iterable, Callable, Generator, overload, Self
-from dataclasses import is_dataclass
+from typing import Type, List, Iterable, Callable, Generator, overload, Self, Any
+from dataclasses import is_dataclass, asdict
 
 from .utils import _supported_tree, make_tree, logger
 from .parser.next_data import has_next_data, get_next_data
 from .parser.flight_data import has_flight_data, get_flight_data, FD, TE
-from .parser.types import RSCPayload, Element, DataContainer, T, _tl2obj, resolve_type
+from .parser.types import RSCPayload, Element, DataContainer, T, _tl2obj, resolve_type, DataParent, _dumped_element_keys
 from .parser.urls import get_next_static_urls, get_base_path, _NS
 from .parser.manifests import _manifest_paths
 
@@ -15,6 +15,7 @@ __all__ = (
     "findall_in_flight_data",
     "find_in_flight_data",
     "BeautifulFD",
+    "default",
 )
 
 def has_nextjs(value: _supported_tree):
@@ -82,6 +83,13 @@ def finditer_in_flight_data(
         if recursive is not False and type(value) is DataContainer:
             yield from finditer_in_flight_data(
                 flight_data=dict(enumerate(value.value)),
+                class_filters=class_filters,
+                callback=callback,
+                recursive=recursive,
+            )
+        elif recursive is not False and type(value) is DataParent:
+            yield from finditer_in_flight_data(
+                flight_data={0: value.children},
                 class_filters=class_filters,
                 callback=callback,
                 recursive=recursive,
@@ -258,10 +266,20 @@ class BeautifulFD:
         Raises:
             TypeError: The given `value` type is not supported.
         """
-        if isinstance(value, dict) \
-            and all(isinstance(key, int) for key in value.keys()) \
-            and all(is_dataclass(value) for value in value.values()):
-            flight_data = value
+        if isinstance(value, dict):
+            flight_data = {}
+            for key, value in value.items():
+                if isinstance(key, str) and key.isdigit():
+                    key = int(key)
+                elif isinstance(key, int) is False:
+                    raise TypeError(f'Given key {key} in flight data dict is neither '
+                                     'a digit string, neither an int.' )
+                if isinstance(value, dict) and set(value.keys()) == _dumped_element_keys:
+                    value = resolve_type(**value)
+                elif is_dataclass(value) is False:
+                    raise TypeError(f'Given key {key} in flight data dict is neither '
+                                     'a digit string, neither an int.' )
+                flight_data[key] = value
         elif isinstance(value, _supported_tree):
             flight_data = get_flight_data(value=value)
         else:
@@ -472,3 +490,22 @@ class BeautifulFD:
             recursive=recursive,
         ):
             return item
+
+def default(obj: Any):
+    """The `default` function for json dumpers.
+
+    Args:
+        obj (Any): The object to resolve the type of.
+
+    Raises:
+        TypeError: The type is not found here.
+
+    Returns:
+        dict[str, Any]: _description_
+    """
+    if isinstance(obj, BeautifulFD):
+        return {str(key): value for key, value in obj}
+    if isinstance(obj, Element):
+        return {**asdict(obj=obj), "cls": type(obj).__name__}
+    else:
+        raise TypeError(type(obj))
