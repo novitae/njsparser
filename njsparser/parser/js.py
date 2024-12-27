@@ -163,6 +163,8 @@ class Parser:
             return True
         elif self.try_consume('false') is not None:
             return False
+        elif self.try_consume('!1') is not None:
+            return False
         elif self.try_consume('void 0') is not None:
             return Undefined
         elif self.try_consume('undefined') is not None:
