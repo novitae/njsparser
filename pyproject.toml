@@ -1,6 +1,6 @@
 [tool.poetry]
 name = "njsparser"
-version = "2.6.1"
+version = "2.6.2"
 description = "A Python NextJS data parser from HTML"
 authors = ["ae <85891169+novitae@users.noreply.github.com>"]
 readme = "README.md"
@@ -12,9 +12,9 @@ python = "^3.10"
 lxml = "^5.3.0"
 orjson = "^3.10.12"
 pytest = "^8.3.4"
-rich = {version = "^13.9.4", optional = true}
-typer = {version = "^0.15.0", optional = true}
-requests = {version = "^2.32.3", extras = ["cli"]}
+rich = {version = "^13.9.4"}
+typer = {version = "^0.15.0"}
+requests = {version = "^2.32.3"}
 pydantic = "^2.10.3"
 
 [tool.poetry.group.dev.dependencies]
@@ -22,8 +22,9 @@ ipykernel = "^6.29.5"
 rich = "^13.9.4"
 typer = "^0.15.0"
 
-[tool.poetry.extras]
-cli = ["rich", "aiohttp", "typer"]
+[tool.poetry.scripts]
+njsparser = "njsparser.cli:app"
+njsp = "njsparser.cli:app"
 
 [build-system]
 requires = ["poetry-core"]

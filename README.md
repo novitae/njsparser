@@ -12,6 +12,14 @@ It uses only **lxml**, **orjson**, **pydantic** to garantee a fast and efficient
 pip install njsparser
 ```
 ## Use
+### CLI
+You can use the cli from 3 different commands:
+- `njsp`
+- `njsparser`
+- `python3 -m njsparser.cli`
+It has only one functionality of displaying informations about the website, like this:
+![](./src/Capture%20d’écran%202024-12-27%20à%2013.01.10.png)
+For more informations, use the `--help` argument with the command.
 ### Parsing `__next_f`.
 The data you find in `__next_f` is called flight data, and contains data under react format. You can parse it easily with `njsparser` the way it follows.
 

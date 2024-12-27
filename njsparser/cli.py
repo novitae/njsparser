@@ -1,9 +1,6 @@
-try:
-    import requests
-    import typer
-    from rich.console import Console
-except ImportError as error:
-    raise ImportError("Please install 'njsparser[cli]' to use the CLI.") from error
+import requests
+import typer
+from rich.console import Console
 
 from njsparser import tools, utils, parser, api
 
@@ -11,7 +8,7 @@ app = typer.Typer()
 console = Console()
 
 @app.command()
-def analyze(url: str):
+def analyze(url: str, force_api: bool = False):
     """Scan the given website to find any interesting exploitable data.
 
     Args:
@@ -50,9 +47,12 @@ def analyze(url: str):
         sorted_pages=sorted_pages,
         build_id=build_id,
         base_path=base_path,
-        is_api_exposed=is_api_exposed,
+        is_api_exposed=is_api_exposed or force_api,
     )):
-        print("The api is exposed, possible endpoints:")
+        if is_api_exposed:
+            print("The api is exposed, possible endpoints:")
+        else:
+            print("Forced api endpoints display:")
         for page in api_paths:
             print(f"- {base_url}{page}")
 
