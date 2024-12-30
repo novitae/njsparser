@@ -157,13 +157,14 @@ class Parser:
             return self.string()
         elif t.isdigit() or t in ('-', '.'):
             return self.number()
+        elif t == "!":
+            self.consume_one()
+            return not self.value()
         elif self.try_consume('null') is not None:
             return None
         elif self.try_consume('true') is not None:
             return True
         elif self.try_consume('false') is not None:
-            return False
-        elif self.try_consume('!1') is not None:
             return False
         elif self.try_consume('void 0') is not None:
             return Undefined

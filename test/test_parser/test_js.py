@@ -110,3 +110,7 @@ def test_excess_data():
     assert loads(string, raise_on_excess_data=False) == {"hello": "world"}
     with pytest.raises(ValueError):
         loads(string, raise_on_excess_data=True)
+
+def test_exclamation_point():
+    loads('{hello:!0,yoo:!1}')
+    loads('[!   true, !     false, !       [1, 2, 3]]')
