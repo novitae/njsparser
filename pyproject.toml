@@ -1,6 +1,6 @@
 [tool.poetry]
 name = "njsparser"
-version = "2.6.3"
+version = "2.7.0"
 description = "A Python NextJS data parser from HTML"
 authors = ["ae <85891169+novitae@users.noreply.github.com>"]
 readme = "README.md"
@@ -16,6 +16,7 @@ rich = {version = "^13.9.4"}
 typer = {version = "^0.15.0"}
 requests = {version = "^2.32.3"}
 pydantic = "^2.10.3"
+pythonmonkey = "^1.1.0"
 
 [tool.poetry.group.dev.dependencies]
 ipykernel = "^6.29.5"

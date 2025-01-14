@@ -1,15 +1,14 @@
 import re
 from typing import Any
+import pythonmonkey
 
 from ..utils import logger, join
 from .urls import _NS
-from .js import loads
 
 _build_manifest_name, _ssg_manifest_name = "_buildManifest.js", "_ssgManifest.js"
 _build_manifest_path, _ssg_manifest_path = f"/{_build_manifest_name}", f"/{_ssg_manifest_name}"
 _manifest_paths = (_build_manifest_path, _ssg_manifest_path)
 
-_re_function_buildmanifest = re.compile(r"^function\((?P<keys>(?:[\w$]+,)*[\w$]+)\)\s*{\s*return\s*(?P<content>{[\S\s]*})\s*}\((?P<values>.*?)\)")
 def parse_buildmanifest(script: str) -> dict[str, Any]:
     """Parses the buildmanifest script (`"/_buildManifest.js"`).
 
@@ -19,20 +18,14 @@ def parse_buildmanifest(script: str) -> dict[str, Any]:
     Returns:
         dict[str, Any] | None: The content of the script, or nothing if no matches.
     """
-    s = script.lstrip()
+    s = script.strip()
     if s.startswith("self.__BUILD_MANIFEST") is False:
         raise ValueError( 'Invalid build manifest (not starting by '
                           '`"self.__BUILD_MANIFEST"`).' )
-    else:
-        s = s.removeprefix("self.__BUILD_MANIFEST").lstrip().removeprefix("=").lstrip()
-    if s.startswith("{"):
-        return loads(string=s)
-    elif (match := _re_function_buildmanifest.search(s)):
-        groupdict = match.groupdict()
-        keys = [item.strip() for item in groupdict.pop("keys").split(",")]
-        values = loads(string="[{}]".format(groupdict.pop("values")))
-        return loads(string=groupdict.pop("content"), kwargs=dict(zip(keys, values)))
-    else:
+    func = f"""(function() {{self={{}};{s.removesuffix(";")};return self.__BUILD_MANIFEST}})();"""
+    try:
+        return pythonmonkey.eval(func)
+    except pythonmonkey.SpiderMonkeyError:
         logger.warning(f'Could not parse the given build manifest `{s}`')
     
 def get_build_manifest_path(build_id: str, base_path: str = None):
