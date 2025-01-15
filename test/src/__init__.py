@@ -6,6 +6,13 @@ d = Path(__file__).parent
 with open(d / "nextjs.org.html", "rb") as read:
     nextjs_org_html = read.read()
 
+# Has NextJS (with flightdata including a noindex data:
+# "...\n:HL["/_next/static/css/86a46c8e043ff692.css","style"]\n:HL[...",
+# differing from index data:
+# "...\n1:HL["/_next/static/css/86a46c8e043ff692.css","style"]\n2:HL[...")
+with open(d / "mintstars.com.html", "rb") as read:
+    mintstars_com_html = read.read()
+
 # Has NextJS (with older flight data) and custom prefix to static paths
 # https://swag.live/user/624dc255c12744f2fdaf90c8
 with open(d / "swag.live.html", "rb") as read:

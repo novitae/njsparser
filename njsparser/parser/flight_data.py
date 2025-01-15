@@ -112,7 +112,7 @@ def decode_raw_flight_data(raw_flight_data: _raw_f_data) -> List[str]:
 
 FD = dict[int, TE]
 
-_split_points = re.compile(rb"(?<!\\)\n[a-f0-9]+:")
+_split_points = re.compile(rb"(?<!\\)\n[a-f0-9]*:")
 def parse_decoded_raw_flight_data(decoded_raw_flight_data: List[str]) -> FD:
     # Here we join, then encode the decoded raw flight data. It is important to encode
     # it, otherwise some values in string will take way more characters, and the text
@@ -120,16 +120,20 @@ def parse_decoded_raw_flight_data(decoded_raw_flight_data: List[str]) -> FD:
     compiled_raw_flight_data = "".join(decoded_raw_flight_data).encode()
     indexed_result, pos = {}, 0
     while True:
-        # We find the position of the first `:`, so we can determine the size of the
-        # index hex string, then parse i into an actual int. We update the pos to be
-        # right after the `:` so we can continue.
+        # We find the position of the first `:`. If it is `-1`, it means we are at
+        # the end of the data, nothing else to parse in the remaining at least, so
+        # we break there. Otherwise we can determine the size of the index hex string
+        # that is between the current pos and the found `:` pos, then parse it into
+        # an actual int. Then update the pos to be right after the `:`.
         index_string_end = compiled_raw_flight_data.find(b":", pos)
+        if index_string_end == -1:
+            break
         index_string_raw = compiled_raw_flight_data[pos:index_string_end]
         if index_string_raw:
             index = int(index_string_raw, 16)
-            pos = index_string_end + 1
         else:
-            break
+            index = None
+        pos = index_string_end + 1
 
         # We iterate until the character is not alphabetic nor upper. This allows to
         # iterate only as long as we are on the class, since they look like `"HF"`,
@@ -172,14 +176,18 @@ def parse_decoded_raw_flight_data(decoded_raw_flight_data: List[str]) -> FD:
             value = orjson.loads(raw_value)
         else:
             value = raw_value
-        # if index == 0:
-        #     value = InitialRSCPayload(**raw_value)
-        # else:
-        indexed_result[index] = resolve_type(
+        
+        resolved = resolve_type(
             value=value,
             value_class=value_class,
             index=index,
         )
+        if index is None:
+            if index not in indexed_result:
+                indexed_result[index] = []
+            indexed_result[index].append(resolved)
+        else:
+            indexed_result[index] = resolved
 
     return indexed_result
 
