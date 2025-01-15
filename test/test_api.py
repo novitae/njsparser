@@ -9,6 +9,7 @@ from njsparser.api import (
 BID = "buildId"
 
 def test_join():
+    assert False
     assert join("_next", "data", BID, "_buildManifest.js") == f"/_next/data/{BID}/_buildManifest.js"
 
 def test_get_api_path():
