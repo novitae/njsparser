@@ -8,19 +8,17 @@ authors = [
 readme = "README.md"
 requires-python = ">=3.10"
 dependencies = [
-    "lxml (>=5.3.0,<6.0.0)",
-    "orjson (>=3.10.12,<4.0.0)",
-    "rich (>=13.9.4,<14.0.0)",
-    "typer (>=0.15.0,<1.0.0)",
-    "requests (>=2.32.3,<3.0.0)",
-    "pydantic (>=2.10.3,<3.0.0)",
-    "pythonmonkey (>=1.1.1,<2.0.0); python_version < '4.0'"
+    "pythonmonkey (>=1.1.1,<2.0.0); python_version < '4.0'",
+    "rich (>=14.0.0,<15.0.0)",
+    "orjson (>=3.10.18,<4.0.0)",
+    "lxml (>=6.0.0,<7.0.0)",
+    "typer (>=0.16.0,<0.17.0)",
+    "requests (>=2.32.4,<3.0.0)",
+    "pydantic (>=2.11.7,<3.0.0)"
 ]
 
 [tool.poetry.group.dev.dependencies]
 ipykernel = "^6.29.5"
-rich = "^13.9.4"
-typer = "^0.15.0"
 pytest = "^8.3.4"
 
 [project.scripts]
