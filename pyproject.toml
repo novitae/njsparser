@@ -1,21 +1,21 @@
-[tool.poetry]
+[project]
 name = "njsparser"
-version = "2.9"
+version = "2.10"
 description = "A Python NextJS data parser from HTML"
-authors = ["ae <85891169+novitae@users.noreply.github.com>"]
+authors = [
+    { name = "ae", email = "85891169+novitae@users.noreply.github.com" }
+]
 readme = "README.md"
-homepage = "https://github.com/novitae/njsparser"
-license = "MIT"
-
-[tool.poetry.dependencies]
-python = "^3.10"
-lxml = "^5.3.0"
-orjson = "^3.10.12"
-rich = {version = "^13.9.4"}
-typer = {version = "^0.15.0"}
-requests = {version = "^2.32.3"}
-pydantic = "^2.10.3"
-pythonmonkey = "^1.1.0"
+requires-python = ">=3.10,<4.0"
+dependencies = [
+    "lxml (>=5.3.0,<6.0.0)",
+    "orjson (>=3.10.12,<4.0.0)",
+    "rich (>=13.9.4,<14.0.0)",
+    "typer (>=0.15.0,<1.0.0)",
+    "requests (>=2.32.3,<3.0.0)",
+    "pydantic (>=2.10.3,<3.0.0)",
+    "pythonmonkey (>=1.1.1,<2.0.0)"
+]
 
 [tool.poetry.group.dev.dependencies]
 ipykernel = "^6.29.5"
@@ -23,10 +23,10 @@ rich = "^13.9.4"
 typer = "^0.15.0"
 pytest = "^8.3.4"
 
-[tool.poetry.scripts]
+[project.scripts]
 njsparser = "njsparser.cli:app"
 njsp = "njsparser.cli:app"
 
 [build-system]
-requires = ["poetry-core"]
+requires = ["poetry-core>=2.0.0,<3.0.0"]
 build-backend = "poetry.core.masonry.api"
