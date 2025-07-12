@@ -194,7 +194,7 @@ class Module(Element):
         """
         return dict({
             self.value[1][x]: self.value[1][x+1]
-            for x in range(0, len(self.value), 2)
+            for x in range(0, len(self.value[1]), 2)
         }) if isinstance(self.value, list) else dict([item.split(":", 1) for item in self.value["chunks"]])
     
     @property
