@@ -1,6 +1,6 @@
 [project]
 name = "njsparser"
-version = "2.13"
+version = "2.14"
 description = "A Python NextJS data parser from HTML"
 authors = [
     { name = "ae", email = "85891169+novitae@users.noreply.github.com" }
@@ -14,7 +14,7 @@ dependencies = [
     "lxml (>=6.0.0,<7.0.0)",
     "typer (>=0.16.0,<0.17.0)",
     "requests (>=2.32.4,<3.0.0)",
-    "pydantic (>=2.11.7,<3.0.0)"
+    "pydantic (>=2.10.0,<3.0.0)"
 ]
 
 [tool.poetry.group.dev.dependencies]
