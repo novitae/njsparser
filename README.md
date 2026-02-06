@@ -18,14 +18,14 @@ You can use the cli from 3 different commands:
 - `njsparser`
 - `python3 -m njsparser.cli`
 It has only one functionality of displaying informations about the website, like this:
-![](./src/Capture%20d’écran%202024-12-27%20à%2013.01.10.png)
+![](./assets/Capture%20d’écran%202024-12-27%20à%2013.01.10.png)
 For more informations, use the `--help` argument with the command.
 ### Parsing `__next_f`.
 The data you find in `__next_f` is called flight data, and contains data under react format. You can parse it easily with `njsparser` the way it follows.
 
 *We will build a parser for the [flight data example](examples/flight_data.py)*
 
-1. In the website you want to parse, make sure you see the `self.__next_f.push` in the begining of script contained the data you search for. Here I am searching for the description `"I should really have a better hobby, but this is it..."` (in blue) in [my page](https://mediux.pro/user/r3draid3r04), and I can also see the `self.__next_f.push` (in green). ![](./src/Capture%20d’écran%202024-12-12%20à%2015.44.11.png)
+1. In the website you want to parse, make sure you see the `self.__next_f.push` in the begining of script contained the data you search for. Here I am searching for the description `"I should really have a better hobby, but this is it..."` (in blue) in [my page](https://mediux.pro/user/r3draid3r04), and I can also see the `self.__next_f.push` (in green). ![](./assets/Capture%20d’écran%202024-12-12%20à%2015.44.11.png)
 2. Then I will do this simple script, to parse, then dump the flight data of my website, and see what objects I am searching for:
    ```py
    import requests
@@ -41,8 +41,8 @@ The data you find in `__next_f` is called flight data, and contains data under r
        # I use the njsparser.default function to support the dump of the flight data objects.
        json.dump(fd, write, indent=4, default=njsparser.default)
    ```
-3. In my dumped flight data, I will search for the same string: ![](./src/Capture%20d’écran%202024-12-12%20à%2015.51.01.png)
-4. Then I will do to the closed `"value"` root to my found string, and look at the value of `"cls"`. Here it is `"Data"`: ![](./src/Capture%20d’écran%202024-12-12%20à%2015.51.17.png)
+3. In my dumped flight data, I will search for the same string: ![](./assets/Capture%20d’écran%202024-12-12%20à%2015.51.01.png)
+4. Then I will do to the closed `"value"` root to my found string, and look at the value of `"cls"`. Here it is `"Data"`: ![](./assets/Capture%20d’écran%202024-12-12%20à%2015.51.17.png)
 5. Now that I know the `"cls"` (class) of object my data is contained in, I can search for it in my `BeautifulFD` object:
    ```py
    import requests
