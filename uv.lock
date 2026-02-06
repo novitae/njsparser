@@ -1243,7 +1243,7 @@ wheels = [
 [[package]]
 name = "njsparser"
 version = "2.15"
-source = { virtual = "." }
+source = { editable = "." }
 dependencies = [
     { name = "lxml" },
     { name = "orjson" },
