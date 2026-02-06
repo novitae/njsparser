@@ -1,8 +1,11 @@
+from typing import Optional
 from .utils import join
 
 _index_json = "index.json"
 
 _excluded_paths = ("/404", "/_app", "/_error", "/sitemap.xml", "/_middleware")
+
+
 def get_api_path(build_id: str, base_path: str = None, path: str = None):
     """Returns the path to the `index.json` file.
 
@@ -26,6 +29,7 @@ def get_api_path(build_id: str, base_path: str = None, path: str = None):
         path = _index_json
     return join(base_path, "/_next/data/", build_id, path)
 
+
 def get_index_api_path(build_id: str, base_path: str = None):
     """Returns the path of the `index.json` api endpoint.
 
@@ -39,19 +43,22 @@ def get_index_api_path(build_id: str, base_path: str = None):
     """
     return get_api_path(build_id=build_id, base_path=base_path, path=_index_json)
 
+
 # Works:
 # - https://coindrop.to/[piggybankName]
 #   https://coindrop.to/_next/data/cSqeZiCyPxe_rbiYdsZdp/[piggybankName].json
 # Doesn't:
 # - https://www.bible.com/users/[username]
 #   https://www.bible.com/_next/data/EhmmkHrUA0ygbv7dJJTtH/users/[username].json
-def is_api_exposed_from_response(status_code: int, content_type: str, text: str):
+def is_api_exposed_from_response(
+    status_code: int, content_type: Optional[str], text: str
+):
     """Tells if the api is exposed from the response of the request to
     `f"https://{domain}{njsparser.utils.get_index_api_path(...)}"`.
 
     Args:
         status_code (int): The status code of the response.
-        content_type (str): The value of the `"Content-Type"` header from
+        content_type (str, optional): The value of the `"Content-Type"` header from
             the response.
         text (str): The text content of the response.
 
@@ -60,12 +67,15 @@ def is_api_exposed_from_response(status_code: int, content_type: str, text: str)
     """
     if status_code == 200:
         return True
-    elif content_type.startswith("application/json"):
+    elif content_type is not None and content_type.startswith("application/json"):
         return True
     else:
         return text == '{"notFound":true}'
-    
-def list_api_paths(sorted_pages: list[str], build_id: str, base_path: str, is_api_exposed: bool = None):
+
+
+def list_api_paths(
+    sorted_pages: list[str], build_id: str, base_path: str, is_api_exposed: bool = None
+):
     """Lists the api paths based of off the build manifest.
 
     Args:
@@ -84,6 +94,10 @@ def list_api_paths(sorted_pages: list[str], build_id: str, base_path: str, is_ap
     result = []
     if is_api_exposed is not False:
         for path in sorted_pages:
-            if (api_path := get_api_path(build_id=build_id, base_path=base_path, path=path)) is not None:
+            if (
+                api_path := get_api_path(
+                    build_id=build_id, base_path=base_path, path=path
+                )
+            ) is not None:
                 result.append(api_path)
     return result

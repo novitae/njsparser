@@ -40,9 +40,15 @@ def analyze(
         print("The site contains a __NEXT_DATA__ script.")
     index_api_path = api.get_index_api_path(build_id=build_id, base_path=base_path)
     is_api_exposed_response = requests.get(f"{base_url}{index_api_path}")
+    if is_api_exposed_response.status_code == 307 and (
+        nextjs_redirect := is_api_exposed_response.headers.get("X-Nextjs-Redirect")
+    ):
+        is_api_exposed_response = requests.get(
+            f"{base_url}{nextjs_redirect}{index_api_path}"
+        )
     is_api_exposed = api.is_api_exposed_from_response(
         status_code=is_api_exposed_response.status_code,
-        content_type=is_api_exposed_response.headers["Content-Type"],
+        content_type=is_api_exposed_response.headers.get("Content-Type"),
         text=is_api_exposed_response.text,
     )
     build_manifest_path = parser.get_build_manifest_path(
