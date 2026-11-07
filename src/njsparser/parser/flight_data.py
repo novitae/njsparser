@@ -5,8 +5,9 @@ import orjson
 import re
 import base64
 from enum import Enum
+from pydantic import ValidationError
 
-from ..utils import make_tree, _supported_tree
+from ..utils import make_tree, _supported_tree, logger
 from .types import resolve_type, Element, TE
 
 _raw_f_data = List[Union[list[int], list[int, str]]]
@@ -112,6 +113,25 @@ def decode_raw_flight_data(raw_flight_data: _raw_f_data) -> List[str]:
 
 FD = dict[int, TE]
 
+def _resolve_row(raw_value: str | bytes, value_class: str | None, index: int | None) -> TE:
+    if value_class == "T":
+        value = raw_value
+    elif not raw_value:
+        value = None
+    else:
+        try:
+            value = orjson.loads(raw_value)
+        except orjson.JSONDecodeError:
+            logger.warning( "Couldn't decode the value of class "
+                           f"`{value_class}` at index `{index}`. Giving `Element`." )
+            return Element(value=raw_value.decode(), value_class=value_class, index=index)
+    try:
+        return resolve_type(value=value, value_class=value_class, index=index)
+    except ValidationError as error:
+        logger.warning( f"The value of class `{value_class}` at index `{index}` "
+                        f"is not a valid `{error.title}`. Giving `Element`." )
+        return Element(value=value, value_class=value_class, index=index)
+
 _split_points = re.compile(rb"(?<!\\)\n[a-f0-9]*:")
 def parse_decoded_raw_flight_data(decoded_raw_flight_data: List[str]) -> FD:
     # Here we join, then encode the decoded raw flight data. It is important to encode
@@ -172,13 +192,11 @@ def parse_decoded_raw_flight_data(decoded_raw_flight_data: List[str]) -> FD:
                 raw_value = compiled_raw_flight_data[pos:-1]
                 pos += len(raw_value)
 
-        if value_class != "T":
-            value = orjson.loads(raw_value)
-        else:
-            value = raw_value
-        
-        resolved = resolve_type(
-            value=value,
+        # An empty value, like the one of the `"X"` and `"C"` stream rows, is `None`.
+        # A value that can't be decoded, or isn't valid for its type, is kept as a
+        # plain `Element`, so that one row can't stop the rest from being parsed.
+        resolved = _resolve_row(
+            raw_value=raw_value,
             value_class=value_class,
             index=index,
         )
