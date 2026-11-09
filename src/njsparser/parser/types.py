@@ -3,6 +3,7 @@ from lxml import etree
 from pydantic.dataclasses import dataclass
 from dataclasses import is_dataclass
 from enum import Enum
+from urllib.parse import urlsplit
 
 from ..utils import logger, join
 from .urls import _N
@@ -133,6 +134,12 @@ class HintPreload(Element):
     #                                         'supported, please open an issue about it.' )
     #     return etree.tostring(element, method="html").decode("utf-8")
 
+def _is_script_path_list(chunks: list[str]) -> bool:
+    return all(urlsplit(chunk).path.endswith(".js") for chunk in chunks)
+
+def _absolute_script_path(path: str) -> str:
+    return path if path.startswith("/") or urlsplit(path).scheme else join(_N, path)
+
 @dataclass(frozen=True)
 class Module(Element):
     """Represents a `"I"` object. It is used to import some modules (list of
@@ -172,7 +179,8 @@ class Module(Element):
             assert isinstance(self.module_id, int)
             if isinstance(self.value, list):
                 assert isinstance(self.value[1], list)
-                assert len(self.value[1]) % 2 == 0
+                assert all(isinstance(chunk, str) and not chunk.startswith("$") for chunk in self.value[1])
+                assert _is_script_path_list(self.value[1]) or len(self.value[1]) % 2 == 0
             else:
                 assert isinstance(self.value["chunks"], list)
             assert isinstance(self.module_name, str)
@@ -187,24 +195,29 @@ class Module(Element):
         return self.value[0] if isinstance(self.value, list) else int(self.value["id"])
     
     def module_chunks_raw(self) -> dict[str, str]:
-        """Returns the raw script[script id: script relative path].
+        """Returns the raw script[script id: script relative path]. Webpack
+        lists script ids and paths in pairs, while Turbopack only lists paths,
+        so each Turbopack script is keyed by its own path.
 
         Returns:
             dict[str, str]: The script map.
         """
-        return dict({
-            self.value[1][x]: self.value[1][x+1]
-            for x in range(0, len(self.value[1]), 2)
-        }) if isinstance(self.value, list) else dict([item.split(":", 1) for item in self.value["chunks"]])
+        if isinstance(self.value, dict):
+            return dict([item.split(":", 1) for item in self.value["chunks"]])
+        chunks = self.value[1]
+        if _is_script_path_list(chunks):
+            return {chunk: chunk for chunk in chunks}
+        return dict(zip(chunks[::2], chunks[1::2]))
     
     @property
     def module_chunks(self):
-        """The modules scripts id to their absolute path.
+        """The modules scripts id to their absolute path. A path that is
+        already absolute, or a full URL, is kept as it is.
 
         Returns:
             dict[str, str]: The script map with absolute paths.
         """
-        return {key: join(_N, value) for key, value in self.module_chunks_raw().items()}
+        return {key: _absolute_script_path(value) for key, value in self.module_chunks_raw().items()}
     
     @property
     def module_name(self) -> str:

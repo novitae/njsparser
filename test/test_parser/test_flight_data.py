@@ -4,7 +4,7 @@ from njsparser.parser.flight_data import (
     get_flight_data,
     parse_decoded_raw_flight_data,
 )
-from njsparser.parser.types import Element, RSCPayload, Data, Text
+from njsparser.parser.types import Element, RSCPayload, Data, Text, Module
 
 from .. import *
 
@@ -53,3 +53,21 @@ def test_parse_decoded_raw_flight_data_invalid_rows(caplog):
     assert fd[12] == Element(value="[1,", value_class=None, index=12)
     assert "index `11`" in caplog.text
     assert "index `12`" in caplog.text
+
+_decoded_raw_flight_data_with_module_references = [
+    '4:"https://example.com/_next/static/chunks/a.js"\n',
+    '5:"https://example.com/_next/static/chunks/b.js"\n',
+    '6:"https://example.com/_next/static/chunks/c.js"\n',
+    '7:"ClientSegmentRoot"\n',
+    '8:I[335250,["$4","$5","$6"],"$7"]\n',
+]
+
+def test_parse_decoded_raw_flight_data_module_references():
+    fd = parse_decoded_raw_flight_data(decoded_raw_flight_data=_decoded_raw_flight_data_with_module_references)
+    assert isinstance(fd[8], Module)
+    assert list(fd[8].module_chunks.values()) == [
+        "https://example.com/_next/static/chunks/a.js",
+        "https://example.com/_next/static/chunks/b.js",
+        "https://example.com/_next/static/chunks/c.js",
+    ]
+    assert fd[8].module_name == "ClientSegmentRoot"

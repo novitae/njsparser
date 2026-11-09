@@ -1,6 +1,6 @@
 """Part of the lib to interract with the nextjs data located looking like `self.__next_f.push(1, "...")`"""
 
-from typing import List, Union, TypeVar
+from typing import Any, List, Union, TypeVar
 import orjson
 import re
 import base64
@@ -113,7 +113,17 @@ def decode_raw_flight_data(raw_flight_data: _raw_f_data) -> List[str]:
 
 FD = dict[int, TE]
 
-def _resolve_row(raw_value: str | bytes, value_class: str | None, index: int | None) -> TE:
+_re_reference = re.compile(r"\$([0-9a-f]+)")
+
+def _resolve_references(value: Any, rows: FD) -> Any:
+    if isinstance(value, list):
+        return [_resolve_references(item, rows) for item in value]
+    if isinstance(value, str) and (match := _re_reference.fullmatch(value)):
+        row = rows.get(int(match.group(1), 16))
+        return value if row is None else row.value
+    return value
+
+def _resolve_row(raw_value: str | bytes, value_class: str | None, index: int | None, rows: FD) -> TE:
     if value_class == "T":
         value = raw_value
     elif not raw_value:
@@ -125,6 +135,9 @@ def _resolve_row(raw_value: str | bytes, value_class: str | None, index: int | N
             logger.warning( "Couldn't decode the value of class "
                            f"`{value_class}` at index `{index}`. Giving `Element`." )
             return Element(value=raw_value.decode(), value_class=value_class, index=index)
+    if value_class == "I":
+        # React writes the rows that an `"I"` row references before the `"I"` row.
+        value = _resolve_references(value, rows)
     try:
         return resolve_type(value=value, value_class=value_class, index=index)
     except ValidationError as error:
@@ -199,6 +212,7 @@ def parse_decoded_raw_flight_data(decoded_raw_flight_data: List[str]) -> FD:
             raw_value=raw_value,
             value_class=value_class,
             index=index,
+            rows=indexed_result,
         )
         if index is None:
             if index not in indexed_result:

@@ -92,6 +92,20 @@ def test_Module():
     assert i2.module_name == ""
     assert i2.is_async is False
 
+def test_Module_turbopack_chunks():
+    paths = [
+        "/_next/static/chunks/95b842b02a0645ed.js",
+        "/_next/static/chunks/60568ed08ea21616.js",
+        "https://cdn.example.com/_next/static/chunks/44xr1oe3zrrye.js",
+    ]
+    i = Module(value=[45254, paths, "default"], value_class="I", index=1)
+    assert i.module_chunks_raw() == {path: path for path in paths}
+    assert i.module_chunks == {path: path for path in paths}
+
+def test_Module_unresolved_references():
+    with pytest.raises(ValidationError):
+        Module(value=[1, ["$4", "$5"], "default"], value_class="I", index=1)
+
 _flightTextPayload = dict(value=(hw := "hello world"), value_class="T", index=1)
 def test_Text():
     t = Text(**_flightTextPayload)
