@@ -92,15 +92,33 @@ def test_Module():
     assert i2.module_name == ""
     assert i2.is_async is False
 
+_turbopack_paths = [
+    "/_next/static/chunks/95b842b02a0645ed.js",
+    "/_next/static/chunks/60568ed08ea21616.js?dpl=dpl_F2qLi1zuzNsnuiFMqRXyYU9dbJYw",
+    "https://cdn.example.com/_next/static/chunks/44xr1oe3zrrye.js",
+]
 def test_Module_turbopack_chunks():
-    paths = [
-        "/_next/static/chunks/95b842b02a0645ed.js",
-        "/_next/static/chunks/60568ed08ea21616.js",
-        "https://cdn.example.com/_next/static/chunks/44xr1oe3zrrye.js",
-    ]
+    i = Module(value=[45254, _turbopack_paths, "default"], value_class="I", index=1)
+    assert i.module_chunks_raw() == {path: path for path in _turbopack_paths}
+    assert i.module_chunks == {path: path for path in _turbopack_paths}
+
+def test_Module_turbopack_chunks_even_count():
+    paths = _turbopack_paths[:2]
     i = Module(value=[45254, paths, "default"], value_class="I", index=1)
     assert i.module_chunks_raw() == {path: path for path in paths}
     assert i.module_chunks == {path: path for path in paths}
+
+def test_Module_turbopack_merged_chunks():
+    merged_path = "/_next/static/immutable/chunks/0lcj8kdo_8aoy.js"
+    merged_chunk = [
+        merged_path,
+        ["static/immutable/chunks/02lzof7wefkzb.js", "static/immutable/chunks/2yuc0x6ci8c4h.js"],
+        [14511, 6034],
+    ]
+    path = "/_next/static/immutable/chunks/3t4dy40wunqmd.js"
+    i = Module(value=[477183, [merged_chunk, path], "default"], value_class="I", index=1)
+    assert i.module_chunks_raw() == {merged_path: merged_path, path: path}
+    assert i.module_chunks == {merged_path: merged_path, path: path}
 
 def test_Module_unresolved_references():
     with pytest.raises(ValidationError):

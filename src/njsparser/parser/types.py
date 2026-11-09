@@ -134,8 +134,12 @@ class HintPreload(Element):
     #                                         'supported, please open an issue about it.' )
     #     return etree.tostring(element, method="html").decode("utf-8")
 
-def _is_script_path_list(chunks: list[str]) -> bool:
-    return all(urlsplit(chunk).path.endswith(".js") for chunk in chunks)
+def _turbopack_script_paths(chunks: list) -> list[str] | None:
+    # Turbopack writes a merged chunk as a list that starts with its own path.
+    paths = [chunk[0] if isinstance(chunk, list) and chunk else chunk for chunk in chunks]
+    if all(isinstance(path, str) and urlsplit(path).path.endswith(".js") for path in paths):
+        return paths
+    return None
 
 def _absolute_script_path(path: str) -> str:
     return path if path.startswith("/") or urlsplit(path).scheme else join(_N, path)
@@ -178,9 +182,11 @@ class Module(Element):
             assert 3 <= len(self.value) <= 4
             assert isinstance(self.module_id, int)
             if isinstance(self.value, list):
-                assert isinstance(self.value[1], list)
-                assert all(isinstance(chunk, str) and not chunk.startswith("$") for chunk in self.value[1])
-                assert _is_script_path_list(self.value[1]) or len(self.value[1]) % 2 == 0
+                chunks = self.value[1]
+                assert isinstance(chunks, list)
+                if _turbopack_script_paths(chunks) is None:
+                    assert all(isinstance(chunk, str) and not chunk.startswith("$") for chunk in chunks)
+                    assert len(chunks) % 2 == 0
             else:
                 assert isinstance(self.value["chunks"], list)
             assert isinstance(self.module_name, str)
@@ -197,7 +203,8 @@ class Module(Element):
     def module_chunks_raw(self) -> dict[str, str]:
         """Returns the raw script[script id: script relative path]. Webpack
         lists script ids and paths in pairs, while Turbopack only lists paths,
-        so each Turbopack script is keyed by its own path.
+        so each Turbopack script is keyed by its own path. A merged Turbopack
+        chunk gives the path of the merged script.
 
         Returns:
             dict[str, str]: The script map.
@@ -205,8 +212,9 @@ class Module(Element):
         if isinstance(self.value, dict):
             return dict([item.split(":", 1) for item in self.value["chunks"]])
         chunks = self.value[1]
-        if _is_script_path_list(chunks):
-            return {chunk: chunk for chunk in chunks}
+        paths = _turbopack_script_paths(chunks)
+        if paths is not None:
+            return {path: path for path in paths}
         return dict(zip(chunks[::2], chunks[1::2]))
     
     @property

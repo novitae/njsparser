@@ -120,7 +120,8 @@ def _resolve_references(value: Any, rows: FD) -> Any:
         return [_resolve_references(item, rows) for item in value]
     if isinstance(value, str) and (match := _re_reference.fullmatch(value)):
         row = rows.get(int(match.group(1), 16))
-        return value if row is None else row.value
+        if row is not None and isinstance(row.value, str):
+            return row.value
     return value
 
 def _resolve_row(raw_value: str | bytes, value_class: str | None, index: int | None, rows: FD) -> TE:
@@ -136,7 +137,7 @@ def _resolve_row(raw_value: str | bytes, value_class: str | None, index: int | N
                            f"`{value_class}` at index `{index}`. Giving `Element`." )
             return Element(value=raw_value.decode(), value_class=value_class, index=index)
     if value_class == "I":
-        # React writes the rows that an `"I"` row references before the `"I"` row.
+        # React moves only strings out of an `"I"` row, and writes them before it.
         value = _resolve_references(value, rows)
     try:
         return resolve_type(value=value, value_class=value_class, index=index)
