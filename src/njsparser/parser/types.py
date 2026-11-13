@@ -3,6 +3,7 @@ from lxml import etree
 from pydantic.dataclasses import dataclass
 from dataclasses import is_dataclass
 from enum import Enum
+from urllib.parse import urlsplit
 
 from ..utils import logger, join
 from .urls import _N
@@ -133,6 +134,16 @@ class HintPreload(Element):
     #                                         'supported, please open an issue about it.' )
     #     return etree.tostring(element, method="html").decode("utf-8")
 
+def _turbopack_script_paths(chunks: list) -> list[str] | None:
+    # Turbopack writes a merged chunk as a list that starts with its own path.
+    paths = [chunk[0] if isinstance(chunk, list) and chunk else chunk for chunk in chunks]
+    if all(isinstance(path, str) and urlsplit(path).path.endswith(".js") for path in paths):
+        return paths
+    return None
+
+def _absolute_script_path(path: str) -> str:
+    return path if path.startswith("/") or urlsplit(path).scheme else join(_N, path)
+
 @dataclass(frozen=True)
 class Module(Element):
     """Represents a `"I"` object. It is used to import some modules (list of
@@ -171,8 +182,11 @@ class Module(Element):
             assert 3 <= len(self.value) <= 4
             assert isinstance(self.module_id, int)
             if isinstance(self.value, list):
-                assert isinstance(self.value[1], list)
-                assert len(self.value[1]) % 2 == 0
+                chunks = self.value[1]
+                assert isinstance(chunks, list)
+                if _turbopack_script_paths(chunks) is None:
+                    assert all(isinstance(chunk, str) and not chunk.startswith("$") for chunk in chunks)
+                    assert len(chunks) % 2 == 0
             else:
                 assert isinstance(self.value["chunks"], list)
             assert isinstance(self.module_name, str)
@@ -187,24 +201,31 @@ class Module(Element):
         return self.value[0] if isinstance(self.value, list) else int(self.value["id"])
     
     def module_chunks_raw(self) -> dict[str, str]:
-        """Returns the raw script[script id: script relative path].
+        """Returns the raw script[script id: script relative path]. Webpack
+        lists script ids and paths in pairs, while Turbopack only lists paths,
+        so each Turbopack script is keyed by its own path. A merged Turbopack
+        chunk gives the path of the merged script.
 
         Returns:
             dict[str, str]: The script map.
         """
-        return dict({
-            self.value[1][x]: self.value[1][x+1]
-            for x in range(0, len(self.value[1]), 2)
-        }) if isinstance(self.value, list) else dict([item.split(":", 1) for item in self.value["chunks"]])
+        if isinstance(self.value, dict):
+            return dict([item.split(":", 1) for item in self.value["chunks"]])
+        chunks = self.value[1]
+        paths = _turbopack_script_paths(chunks)
+        if paths is not None:
+            return {path: path for path in paths}
+        return dict(zip(chunks[::2], chunks[1::2]))
     
     @property
     def module_chunks(self):
-        """The modules scripts id to their absolute path.
+        """The modules scripts id to their absolute path. A path that is
+        already absolute, or a full URL, is kept as it is.
 
         Returns:
             dict[str, str]: The script map with absolute paths.
         """
-        return {key: join(_N, value) for key, value in self.module_chunks_raw().items()}
+        return {key: _absolute_script_path(value) for key, value in self.module_chunks_raw().items()}
     
     @property
     def module_name(self) -> str:
