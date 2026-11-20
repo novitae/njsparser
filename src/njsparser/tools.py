@@ -9,6 +9,7 @@ from .parser.types import (
     RSCPayload,
     Element,
     DataContainer,
+    Stream,
     T,
     _tl2obj,
     resolve_type,
@@ -95,7 +96,7 @@ def finditer_in_flight_data(
     if class_filters is not None and isinstance(class_filters, set) is False:
         class_filters = set(class_filters)
     for value in flight_data.values():
-        if recursive is not False and type(value) is DataContainer:
+        if recursive is not False and type(value) in (DataContainer, Stream):
             yield from finditer_in_flight_data(
                 flight_data=dict(enumerate(value.value)),
                 class_filters=class_filters,

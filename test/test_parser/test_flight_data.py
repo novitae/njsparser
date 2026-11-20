@@ -4,7 +4,7 @@ from njsparser.parser.flight_data import (
     get_flight_data,
     parse_decoded_raw_flight_data,
 )
-from njsparser.parser.types import Element, RSCPayload, Data, Text, Module
+from njsparser.parser.types import Element, RSCPayload, Data, Text, Module, Stream, HintPreload
 
 from .. import *
 
@@ -44,7 +44,7 @@ def test_parse_decoded_raw_flight_data_keeps_valid_rows():
 
 def test_parse_decoded_raw_flight_data_empty_rows():
     fd = parse_decoded_raw_flight_data(decoded_raw_flight_data=_decoded_raw_flight_data_with_bad_rows)
-    assert fd[10] == Element(value=None, value_class="X", index=10)
+    assert fd[10] == Stream(value=[], value_class="X", index=10)
     assert fd[13] == Element(value=None, value_class="C", index=13)
 
 def test_parse_decoded_raw_flight_data_invalid_rows(caplog):
@@ -97,3 +97,53 @@ def test_parse_decoded_raw_flight_data_module_name_like_a_reference():
     ])
     assert isinstance(fd[11], Module)
     assert fd[11].module_name == "$a"
+
+_decoded_raw_flight_data_with_streams = [
+    '1:X\n',
+    '1:"a"\n',
+    '2:x\n',
+    '1:"b"\n',
+    '2:"c"\n',
+    '1:C\n',
+    '2:C"d"\n',
+    '3:"after"\n',
+]
+
+def test_parse_decoded_raw_flight_data_streams():
+    fd = parse_decoded_raw_flight_data(decoded_raw_flight_data=_decoded_raw_flight_data_with_streams)
+    assert list(fd) == [1, 2, 3]
+    assert fd[1] == Stream(
+        value=[
+            Element(value="a", value_class=None, index=1),
+            Element(value="b", value_class=None, index=1),
+        ],
+        value_class="X",
+        index=1,
+    )
+    assert fd[2] == Stream(
+        value=[
+            Element(value="c", value_class=None, index=2),
+            Element(value="d", value_class="C", index=2),
+        ],
+        value_class="x",
+        index=2,
+    )
+
+def test_parse_decoded_raw_flight_data_length_prefixed_rows():
+    fd = parse_decoded_raw_flight_data(decoded_raw_flight_data=['5:A6,ab\n1:c6:"x"\n'])
+    assert fd[5] == Element(value="ab\n1:c", value_class="A", index=5)
+    assert fd[6] == Element(value="x", value_class=None, index=6)
+    assert 1 not in fd
+
+def test_parse_decoded_raw_flight_data_hints():
+    fd = parse_decoded_raw_flight_data(decoded_raw_flight_data=[':HL["/a.css","style"]\n', ':Hm["/b.js"]\n'])
+    assert isinstance(fd[None][0], HintPreload)
+    assert fd[None][1] == Element(value=["/b.js"], value_class="Hm", index=None)
+
+def test_parse_decoded_raw_flight_data_unreadable_rows(caplog):
+    fd = parse_decoded_raw_flight_data(decoded_raw_flight_data=['1:"a"\nzz:1\nfoo\n2:Tzz\n3:"b"\n'])
+    assert fd == {
+        1: Element(value="a", value_class=None, index=1),
+        3: Element(value="b", value_class=None, index=3),
+    }
+    assert caplog.text.count("Couldn't read the row") == 3

@@ -4,11 +4,12 @@ from typing import Any, List, Union, TypeVar
 import orjson
 import re
 import base64
+import string
 from enum import Enum
 from pydantic import ValidationError
 
 from ..utils import make_tree, _supported_tree, logger
-from .types import resolve_type, Element, TE
+from .types import resolve_type, Element, Stream, TE
 
 _raw_f_data = List[Union[list[int], list[int, str]]]
 _re_f_init = re.compile(r'\(self\.__next_f\s?=\s?self\.__next_f\s?\|\|\s?\[\]\)\.push\((\[.+?\])\)')
@@ -92,26 +93,12 @@ def decode_raw_flight_data(raw_flight_data: _raw_f_data) -> List[str]:
         raise error
     return initial_server_data_buffer
 
-# TODO: update `parse_decoded_raw_flight_data` with the new data found in react at:
-# https://github.com/facebook/react/blob/1c9b138714a69cd136a3d82769b1fd9a4b318953/packages/react-client/src/ReactFlightClient.js#L2874-L2993
-# --> processFullBinaryRow()
-#             \/
-# --> processFullStringRow() -> str[0] == "H" -> resolveHint -> parseModel(str[1]) -> parseModel -> dispatchHint(JSON.parse(...), str[1])   -> str[1] == "D" -> prefetchDNS
-#                            ->        == "I" -> resolveModule                                                                              ->        == "C" -> preconnect
-#                            ->        == "E" -> JSON.parse(...).digest                                                                     ->        == "L" -> preload
-#                            ->        == "T" -> resolveText                                                                                ->        == "m" -> preloadModule
-#                            ->        == "D" -> resolveDebugInfo                                                                           ->        == "X" -> preinitScript
-#                            ->        == "W" -> resolveConsoleEntry                                                                        ->        == "S" -> preinitStyle
-#                            ->        == "R" -> startReadableStream                                                                        ->        == "M" -> preinitModuleScript
-#                            ->        == "r" -> startReadableStream(bytes)
-#                            ->        == "X" -> startAsyncIterable(false)
-#                            ->        == "x" -> startAsyncIterable(true)
-#                            ->        == "C" -> stopStream
-#                            ->        == "P" -> resolvePostponeProd
-#                            -> else          -> resolveModel
-
-
 FD = dict[int, TE]
+
+# The row tags as React reads them, in `processBinaryChunk` of `ReactFlightClient.js`.
+_length_prefixed_tags = frozenset("TbAOoUSsLlGgMmV")
+_tags = _length_prefixed_tags | frozenset(string.ascii_uppercase + "#rx")
+_stream_tags = frozenset("RrXx")
 
 _re_reference = re.compile(r"\$([0-9a-f]+)")
 
@@ -124,9 +111,9 @@ def _resolve_references(value: Any, rows: FD) -> Any:
             return row.value
     return value
 
-def _resolve_row(raw_value: str | bytes, value_class: str | None, index: int | None, rows: FD) -> TE:
-    if value_class == "T":
-        value = raw_value
+def _resolve_row(raw_value: bytes, value_class: str | None, index: int | None, rows: FD) -> TE:
+    if value_class in _length_prefixed_tags:
+        value = raw_value.decode()
     elif not raw_value:
         value = None
     else:
@@ -146,82 +133,73 @@ def _resolve_row(raw_value: str | bytes, value_class: str | None, index: int | N
                         f"is not a valid `{error.title}`. Giving `Element`." )
         return Element(value=value, value_class=value_class, index=index)
 
-_split_points = re.compile(rb"(?<!\\)\n[a-f0-9]*:")
+def _iter_rows(data: bytes):
+    pos = 0
+    while (index_end := data.find(b":", pos)) != -1:
+        tag_pos = index_end + 1
+        tag = chr(data[tag_pos]) if tag_pos < len(data) else ""
+        try:
+            index = int(data[pos:index_end], 16) if index_end > pos else None
+            if tag in _length_prefixed_tags:
+                length_end = data.index(b",", tag_pos)
+                start = length_end + 1
+                end = pos = start + int(data[tag_pos + 1:length_end], 16)
+            else:
+                start = tag_pos + 1 if tag in _tags else tag_pos
+                end = data.find(b"\n", start)
+                if end == -1:
+                    end = len(data)
+                pos = end + 1
+        except ValueError:
+            logger.warning(f"Couldn't read the row at byte `{pos}`. Skipping its line.")
+            line_end = data.find(b"\n", pos)
+            if line_end == -1:
+                return
+            pos = line_end + 1
+            continue
+        raw_value = data[start:end]
+        value_class = tag if tag in _tags else None
+        # A hint row keeps its code in the class, as in `"HL"`.
+        if value_class == "H" and raw_value:
+            value_class, raw_value = value_class + chr(raw_value[0]), raw_value[1:]
+        yield index, value_class, raw_value
+
 def parse_decoded_raw_flight_data(decoded_raw_flight_data: List[str]) -> FD:
     # Here we join, then encode the decoded raw flight data. It is important to encode
     # it, otherwise some values in string will take way more characters, and the text
     # size announced in `"T"` will not be pointing to the correct text end.
     compiled_raw_flight_data = "".join(decoded_raw_flight_data).encode()
-    indexed_result, pos = {}, 0
-    while True:
-        # We find the position of the first `:`. If it is `-1`, it means we are at
-        # the end of the data, nothing else to parse in the remaining at least, so
-        # we break there. Otherwise we can determine the size of the index hex string
-        # that is between the current pos and the found `:` pos, then parse it into
-        # an actual int. Then update the pos to be right after the `:`.
-        index_string_end = compiled_raw_flight_data.find(b":", pos)
-        if index_string_end == -1:
-            break
-        index_string_raw = compiled_raw_flight_data[pos:index_string_end]
-        if index_string_raw:
-            index = int(index_string_raw, 16)
-        else:
-            index = None
-        pos = index_string_end + 1
+    indexed_result, streams = {}, {}
+    for index, value_class, raw_value in _iter_rows(compiled_raw_flight_data):
+        # The rows of a stream share its index until a `"C"` row closes it. The
+        # stream is built once all rows are read, and `None` keeps its place.
+        if value_class in _stream_tags:
+            streams[index] = (value_class, [])
+            indexed_result[index] = None
+            continue
+        if index in streams and value_class == "C" and not raw_value:
+            continue
 
-        # We iterate until the character is not alphabetic nor upper. This allows to
-        # iterate only as long as we are on the class, since they look like `"HF"`,
-        # `"I"`, `"T"`, ... . If the string is empty, we will set it to `None`.
-        value_class = ""
-        while (char := chr(compiled_raw_flight_data[pos])).isalpha() and char.isupper():
-            value_class += char
-            pos += 1
-        value_class = value_class or None
-        
-        # If the class is `"T"`, if will right after it have the hex size of the text
-        # it contains. It is then separated to the content with a `","`. We find the
-        # comma, select the size hex string (`text_length_hex`), then turn it into an
-        # `int`. Then we select the text with the size we just calculated.
-        if value_class == "T":
-            text_length_string_end = compiled_raw_flight_data.find(b",", pos)
-            text_length_hex = compiled_raw_flight_data[pos:text_length_string_end]
-            text_length = int(text_length_hex, 16)
-            text_start = text_length_string_end + 1 # (+1 for the comma)
-            raw_value = compiled_raw_flight_data[text_start:text_start+text_length].decode()
-            pos = text_start + text_length
-        
-        # Otherwise, we will search for the next time we have a non escaped `"\n"`,
-        # followed by the hex string of the index, with `":"` (using the regex
-        # `_split_points`).
-        else:
-            # If we have a match, we select the position of the start of it, and will
-            # use it as the end position of the current value.
-            if data_end_match := _split_points.search(string=compiled_raw_flight_data, pos=pos):
-                data_end = data_end_match.start()
-                raw_value = compiled_raw_flight_data[pos:data_end]
-                pos = data_end + 1
-            # Otherwise, it means we are reaching the end of the string, so the value
-            # will extend to the end of it, and so will its end pos.
-            else:
-                raw_value = compiled_raw_flight_data[pos:-1]
-                pos += len(raw_value)
-
-        # An empty value, like the one of the `"X"` and `"C"` stream rows, is `None`.
-        # A value that can't be decoded, or isn't valid for its type, is kept as a
-        # plain `Element`, so that one row can't stop the rest from being parsed.
+        # An empty value is `None`. A value that can't be decoded, or isn't valid
+        # for its type, is kept as a plain `Element`, so that one row can't stop
+        # the rest from being parsed.
         resolved = _resolve_row(
             raw_value=raw_value,
             value_class=value_class,
             index=index,
             rows=indexed_result,
         )
-        if index is None:
+        if index in streams:
+            streams[index][1].append(resolved)
+        elif index is None:
             if index not in indexed_result:
                 indexed_result[index] = []
             indexed_result[index].append(resolved)
         else:
             indexed_result[index] = resolved
 
+    for index, (value_class, chunks) in streams.items():
+        indexed_result[index] = Stream(value=chunks, value_class=value_class, index=index)
     return indexed_result
 
 def get_flight_data(value: _supported_tree):

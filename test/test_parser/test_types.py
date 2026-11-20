@@ -244,6 +244,12 @@ def test_Error():
     fe = Error(**_flightErrorPayload)
     assert fe.digest == err
 
+def test_Stream():
+    s = Stream(value=[Element(value="a", value_class=None, index=1)], value_class="X", index=1)
+    assert resolve_type(**default(s)) == s
+    with pytest.raises(ValidationError):
+        Stream(value=[], value_class="I", index=1)
+
 def test_resolve_type():
     assert isinstance(resolve_type(**_flightHintPreloadPayload_1), HintPreload)
     assert isinstance(resolve_type(**_flightHintPreloadPayload_2), HintPreload)

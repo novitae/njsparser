@@ -26,6 +26,7 @@ __all__ = (
     "RSCPayloadVersion",
     "RSCPayload",
     "Error",
+    "Stream",
     "resolve_type",
     "T",
 )
@@ -639,6 +640,35 @@ class Error(Element):
         """
         return self.value["digest"]
 
+@dataclass(frozen=True)
+class Stream(Element):
+    """Represents a stream, started by a `"R"` or `"r"` (readable stream, of
+    bytes for `"r"`) or a `"X"` or `"x"` (async iterable, or iterator for `"x"`)
+    row. Its value is the list of the rows that share its index, in order. If
+    the `"C"` row that closes it carries a value, that value comes last.
+
+    ```python
+    >>> s = Stream(
+    ...     value=[Element(value="a", value_class=None, index=1)],
+    ...     value_class="X",
+    ...     index=1,
+    ... )
+    >>> s.value
+    [Element(value='a', value_class=None, index=1)]
+    ```
+    """
+    value: list
+
+    def __post_init__(self):
+        object.__setattr__(
+            self,
+            "value",
+            [item if is_dataclass(item) else resolve_type(**item) for item in self.value],
+        )
+        if ENABLE_TYPE_VERIF is True:
+            assert self.value_class in ("R", "r", "X", "x")
+            assert all(is_dataclass(item) for item in self.value)
+
 _element_keys = set(["value", "value_class", "index"])
 _dumped_element_keys = _element_keys.union({"cls"})
 _types: dict[str, Type[Element]] = {
@@ -721,9 +751,10 @@ class T(dict[str, Type[TE]]):
     URLQuery = URLQuery
     RSCPayload = RSCPayload
     Error = Error
+    Stream = Stream
 
 AnyElement = Element | HintPreload | Module | Text | Data | EmptyData | SpecialData | \
-    HTMLElement | DataContainer | DataParent | URLQuery | RSCPayload | Error
+    HTMLElement | DataContainer | DataParent | URLQuery | RSCPayload | Error | Stream
 
 _tl2obj = {
     "Element": Element,
@@ -739,4 +770,5 @@ _tl2obj = {
     "URLQuery": URLQuery,
     "RSCPayload": RSCPayload,
     "Error": Error,
+    "Stream": Stream,
 }

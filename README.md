@@ -71,7 +71,7 @@ The data you find in `__next_f` is called flight data, and contains data under r
    ```
 
 More informations:
-- If your object is inside another object (e.g. `"Data"` in a `"DataParent"`, or in a `"DataContainer"`), the `.find_iter` will also find it recursively (except if you set `recursive=False`).
+- If your object is inside another object (e.g. `"Data"` in a `"DataParent"`, a `"DataContainer"` or a `"Stream"`), the `.find_iter` will also find it recursively (except if you set `recursive=False`).
 - Make sure you use the correct flight data classes attributes when fetching their data. The class `"Data"` has a `.content` attribute. If you use `.value`, you will end up with the raw value and will have to parse it yourself. If you work with a `"DataParent"` object, instead of using `.value` (that will give you `["$", "$L16", None, {"children": ["$", "$L17", None, {"profile": {}}]}])`, use `.children` (that will give you a `"Data"` object with a `.content` of `{"profile": {}}`). Check for the [type file](njsparser/parser/types.py) to see what classes you're interested in, and their attributes.
 - You can also use `.find` on `BeautifulFD` to return the only first occurence of your query, or None if not found.
 
