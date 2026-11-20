@@ -17,6 +17,7 @@ from .parser.types import (
 )
 from .parser.urls import get_next_static_urls, get_base_path, _NS
 from .parser.manifests import _manifest_paths
+from .parser.references import resolve_references, iter_key
 
 __all__ = (
     "has_nextjs",
@@ -531,6 +532,83 @@ class BeautifulFD:
             recursive=recursive,
         ):
             return item
+
+    def resolve(self, value: Any) -> Any:
+        """Returns a copy of the given value where each reference to a row of
+        the flight data is replaced by what it points to.
+
+        A reference is a string like `"$1f"` (the row `1f`), `"$1f:props:listing"`
+        (a value inside the row `1f`), `"$L1f"` or `"$@1f"` (a row that is sent
+        later). It is replaced if its row holds data or text. Any other string
+        that starts with `"$"`, like `"$undefined"` or a reference to a `"I"`
+        module, is kept as it is, and so is a reference that points back to a
+        value it is part of.
+
+        Args:
+            value (Any): The value to resolve the references of. Can be any part
+                of the flight data, like the `.content` of a `Data`, or a flight
+                data element.
+
+        Returns:
+            Any: The copy of the value, without its references.
+        """
+        return resolve_references(value, self._flight_data or {})
+
+    def find_key_iter(
+        self,
+        key: str,
+        callback: Callable[[Any], bool] = None,
+        within: Any = None,
+    ) -> Generator[Any, None, None]:
+        """Yields the values stored under the given key, however deep they are
+        in the flight data. Their references are resolved, as `.resolve` does.
+        The key of a dict comes before the same key deeper in it.
+
+        Args:
+            key (str): The key to search for.
+            callback (Callable[[Any], bool], optional): A function used to further
+                filter the values. The function receives a single value as an
+                argument and must return `True` to include it in the results, or
+                `False` to exclude it. For example, `lambda value: "price" in value`
+                includes only the values that contain a `"price"`. If None, all
+                values are included. Defaults to None.
+            within (Any, optional): The value to search in, typically one found
+                by a previous search. If None, the whole flight data is searched.
+                Defaults to None.
+
+        Yields:
+            Any: The values stored under the key.
+        """
+        if within is not None:
+            sources = [self.resolve(within)]
+        else:
+            sources = self._flight_data.values() if self else []
+        for source in sources:
+            for value in iter_key(source, key):
+                value = self.resolve(value)
+                if callback is None or callback(value):
+                    yield value
+
+    def find_key_all(
+        self,
+        key: str,
+        callback: Callable[[Any], bool] = None,
+        within: Any = None,
+    ) -> List[Any]:
+        """Returns all the values stored under the given key. See
+        `BeautifulFD.find_key_iter`."""
+        return list(self.find_key_iter(key=key, callback=callback, within=within))
+
+    def find_key(
+        self,
+        key: str,
+        callback: Callable[[Any], bool] = None,
+        within: Any = None,
+    ) -> Any | None:
+        """Returns the first value stored under the given key, or None if there
+        is none. See `BeautifulFD.find_key_iter`."""
+        for value in self.find_key_iter(key=key, callback=callback, within=within):
+            return value
 
 
 def default(obj: Any):

@@ -75,6 +75,32 @@ More informations:
 - Make sure you use the correct flight data classes attributes when fetching their data. The class `"Data"` has a `.content` attribute. If you use `.value`, you will end up with the raw value and will have to parse it yourself. If you work with a `"DataParent"` object, instead of using `.value` (that will give you `["$", "$L16", None, {"children": ["$", "$L17", None, {"profile": {}}]}])`, use `.children` (that will give you a `"Data"` object with a `.content` of `{"profile": {}}`). Check for the [type file](njsparser/parser/types.py) to see what classes you're interested in, and their attributes.
 - You can also use `.find` on `BeautifulFD` to return the only first occurence of your query, or None if not found.
 
+#### Searching by key
+If you know the key your data is stored under, you don't need to know the class of the object it is in, nor where it is in that object. `.find_key` searches the whole flight data for the key, however deep it is:
+```py
+fd = njsparser.BeautifulFD(response)
+# The first value stored under the key `"user"`, or None if there is none
+user = fd.find_key("user")
+print(user["tagline"])
+```
+
+More informations:
+- `.find_key_all` returns all the values stored under the key, and `.find_key_iter` iterates over them.
+- You can filter the values with `callback`, e.g. `fd.find_key("user", callback=lambda user: "tagline" in user)`.
+- You can search in a value you already found, instead of the whole flight data, with `within`, e.g. `fd.find_key("tagline", within=user)`.
+- The key of an object comes before the same key deeper in that object.
+
+#### References
+React doesn't always write a value where it is used. A string of 1024 characters or more is written in a row of its own, and so is content that is sent later. An object used in several places is written once. In each case, a reference is left where the value is missing: `"$1f"` for the row `1f`, `"$1f:props:user"` for a value inside the row `1f`, `"$L1f"` or `"$@1f"` for a row that is sent later.
+
+The values returned by `.find_key`, `.find_key_all` and `.find_key_iter` have their references replaced by what they point to. To do the same with a value you got another way, use `.resolve`:
+```py
+data.content              # {"title": "My page", "description": "$1f"}
+fd.resolve(data.content)  # {"title": "My page", "description": "A text of 1024 characters or more..."}
+```
+
+A string that starts with `"$"` but is not a reference to data, like `"$undefined"`, or `"$L12"` when the row `12` is a module (`"I"`), is kept as it is.
+
 ### Parsing `<script id='__NEXT_DATA__'>`
 Just do:
 ```py

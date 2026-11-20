@@ -6,6 +6,7 @@ from njsparser.tools import (
     BeautifulFD,
     resolve_type,
 )
+from njsparser.parser.flight_data import parse_decoded_raw_flight_data
 from njsparser.parser.types import *
 from dataclasses import is_dataclass
 
@@ -71,3 +72,55 @@ def test_BeautifulFD():
     assert bool(empty_bfd) is False
     assert len(BeautifulFD("<html></html>")) == 0
     assert isinstance(empty_bfd.as_list(), list)
+
+_car_fd = BeautifulFD(parse_decoded_raw_flight_data(decoded_raw_flight_data=[
+    '1:I[30777,["71523","static/chunks/a.js"],"default"]\n',
+    '2:T5,hello',
+    '3:["$","div",null,{"children":["$","$L1",null,{"listing":{"make":"MAZDA","description":"$2","seller":{"id":7}},"seller":{"id":7,"name":"Garage"}}]}]\n',
+    '4:["$","$L1",null,{"seller":"$3:props:children:props:seller","similar":"$L5"}]\n',
+    '5:{"listing":{"make":"FIAT"}}\n',
+]))
+
+def test_BeautifulFD_resolve():
+    assert _car_fd.resolve("$5") == {"listing": {"make": "FIAT"}}
+    assert _car_fd.resolve({"description": "$2", "module": "$L1"}) == {"description": "hello", "module": "$L1"}
+    assert BeautifulFD(x_com_html).resolve("$5") == "$5"
+
+def test_BeautifulFD_find_key():
+    assert _car_fd.find_key("listing") == {"make": "MAZDA", "description": "hello", "seller": {"id": 7}}
+    assert _car_fd.find_key("description") == "hello"
+    assert _car_fd.find_key("nope") is None
+    assert BeautifulFD(x_com_html).find_key("listing") is None
+
+def test_BeautifulFD_find_key_all():
+    assert _car_fd.find_key_all("seller") == [
+        {"id": 7, "name": "Garage"},
+        {"id": 7},
+        {"id": 7, "name": "Garage"},
+    ]
+    assert _car_fd.find_key_all("similar") == [{"listing": {"make": "FIAT"}}]
+    assert _car_fd.find_key_all("nope") == []
+    assert BeautifulFD(x_com_html).find_key_all("listing") == []
+
+def test_BeautifulFD_find_key_callback():
+    assert _car_fd.find_key("listing", callback=lambda value: value["make"] == "FIAT") == {"make": "FIAT"}
+    assert _car_fd.find_key_all("seller", callback=lambda value: "name" not in value) == [{"id": 7}]
+
+def test_BeautifulFD_find_key_within():
+    similar = _car_fd.find_key("similar")
+    assert _car_fd.find_key("make", within=similar) == "FIAT"
+    assert _car_fd.find_key_all("listing", within=_car_fd._flight_data[4]) == [{"make": "FIAT"}]
+    assert _car_fd.find_key("description", within=similar) is None
+
+def test_BeautifulFD_find_key_in_pages():
+    swag_live = BeautifulFD(swag_live_html)
+    assert all(not html.startswith("$") for html in swag_live.find_key_iter("__html"))
+    assert swag_live.find_key("__html").startswith("body{color:#000;background:#fff;")
+
+    nextjs_org = BeautifulFD(nextjs_org_html)
+    assert nextjs_org.find_key("b") == "4mSOwJptzzPemGzzI8AOo"
+    styles = nextjs_org.find_key_all("style")
+    assert {style for style in styles if isinstance(style, str)} == {"$undefined"}
+    assert styles.count({"display": "inline-block"}) == 2
+
+    assert BeautifulFD(mintstars_com_html).find_key("createdAt") == "$D2024-02-26T22:03:52.451Z"
